@@ -1,0 +1,75 @@
+.appContainer {
+  display: flex;
+  flex-direction: column; /* Вертикальне розміщення: Хедер -> Контент */
+  min-height: 100vh;
+  font-family:
+    "Inter",
+    system-ui,
+    -apple-system,
+    sans-serif;
+  background-color: #0f172a;
+  color: #e2e8f0;
+}
+
+/* --- Горизонтальний Хедер --- */
+.header {
+  background-color: #1e293b;
+  border-bottom: 1px solid #334155;
+  padding: 16px 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.headerLogo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #38bdf8;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-decoration: none;
+}
+
+.headerNav {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.navLink {
+  text-decoration: none;
+  color: #94a3b8;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 8px;
+  transition: all 0.2s ease-in-out;
+}
+
+.navLink:hover {
+  background-color: #334155;
+  color: #f8fafc;
+}
+
+.adminBtn {
+  border: 1px solid #0284c7;
+  color: #38bdf8;
+}
+
+.adminBtn:hover {
+  background-color: #0284c7;
+  color: #ffffff;
+}
+
+/* --- Широкий центральний контейнер --- */
+.mainContent {
+  flex: 1;
+  width: 100%;
+  max-width: 1600px; /* Збільшена максимальна ширина */
+  margin: 0 auto; /* Центрування на ультрашироких моніторах */
+  padding: 40px;
+}

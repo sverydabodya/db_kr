@@ -1,0 +1,129 @@
+.detailsContainer {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #94a3b8;
+  text-decoration: none;
+  font-weight: 500;
+  margin-bottom: 24px;
+  transition: color 0.2s;
+}
+
+.backLink:hover {
+  color: #38bdf8;
+}
+
+.contentWrapper {
+  display: flex;
+  gap: 40px;
+  background-color: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 40px;
+}
+
+/* Ліва колонка: Фотографія */
+.imageSection {
+  flex: 0 0 400px;
+}
+
+.imagePlaceholder {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background-color: #0f172a;
+  border: 1px dashed #475569;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  font-size: 1.2rem;
+}
+
+/* Права колонка: Характеристики */
+.infoSection {
+  flex: 1;
+}
+
+.title {
+  font-size: 2.5rem;
+  color: #f8fafc;
+  margin-top: 0;
+  margin-bottom: 16px;
+  line-height: 1.2;
+}
+
+.priceBlock {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #334155;
+}
+
+.price {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.buyButton {
+  padding: 12px 32px;
+  background-color: #16a34a; /* Зелений акцент для покупки */
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.buyButton:hover {
+  background-color: #15803d;
+}
+
+.specsTitle {
+  font-size: 1.5rem;
+  color: #f1f5f9;
+  margin-bottom: 16px;
+}
+
+.specsTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.specsTable tr:nth-child(odd) {
+  background-color: #0f172a; /* Смугаста таблиця */
+}
+
+.specsTable td {
+  padding: 16px;
+  color: #cbd5e1;
+  border-bottom: 1px solid #334155;
+}
+
+.specsTable td:first-child {
+  color: #94a3b8;
+  width: 40%;
+}
+
+.description {
+  margin-top: 32px;
+  line-height: 1.6;
+  color: #cbd5e1;
+}
+
+.notFound {
+  text-align: center;
+  font-size: 1.5rem;
+  color: #f8fafc;
+  margin-top: 100px;
+}

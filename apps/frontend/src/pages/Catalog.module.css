@@ -1,0 +1,393 @@
+.pageTitle {
+  color: #f8fafc;
+  font-size: 2rem;
+  margin-top: 0;
+  margin-bottom: 24px;
+}
+
+.catalogLayout {
+  display: flex;
+  gap: 32px;
+  align-items: flex-start;
+}
+
+/* --- Бокова панель фільтрів --- */
+.filtersPanel {
+  width: 280px; /* Трохи ширше для зручності */
+  flex-shrink: 0;
+  background-color: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  position: sticky;
+  top: 100px;
+  overflow-y: auto;
+  max-height: calc(100vh - 120px); /* Скрол всередині панелі, якщо фільтрів багато */
+}
+
+/* Кастомний скролбар для панелі фільтрів */
+.filtersPanel::-webkit-scrollbar {
+  width: 6px;
+}
+.filtersPanel::-webkit-scrollbar-thumb {
+  background-color: #475569;
+  border-radius: 4px;
+}
+
+.searchWrapper {
+  padding: 20px;
+  border-bottom: 1px solid #334155;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 10px 14px;
+  background-color: #0f172a;
+  border: 1px solid #475569;
+  border-radius: 8px;
+  color: #f8fafc;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.searchInput:focus {
+  border-color: #38bdf8;
+}
+
+/* --- Секції фільтрів (details / summary) --- */
+.filterDetails {
+  border-bottom: 1px solid #334155;
+}
+
+.filterDetails:last-child {
+  border-bottom: none;
+}
+
+.filterSummary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  font-weight: 600;
+  color: #f1f5f9;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.2s;
+  list-style: none; /* Прибираємо стандартний трикутник */
+}
+
+.filterSummary::-webkit-details-marker {
+  display: none;
+}
+
+.filterSummary:hover {
+  color: #38bdf8;
+}
+
+.arrowIcon {
+  fill: currentColor;
+  transition: transform 0.3s ease;
+}
+
+/* Поворот стрілки, коли секція відкрита */
+.filterDetails[open] .arrowIcon {
+  transform: rotate(180deg);
+}
+
+.filterContent {
+  padding: 0 20px 20px 20px;
+}
+
+/* --- Чекбокси --- */
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #cbd5e1;
+  cursor: pointer;
+  margin-bottom: 12px;
+  font-size: 0.95rem;
+  transition: color 0.2s;
+}
+
+.checkboxLabel:last-child {
+  margin-bottom: 0;
+}
+
+.checkboxLabel:hover {
+  color: #38bdf8;
+}
+
+.checkboxInput {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #475569;
+  border-radius: 4px;
+  background-color: #0f172a;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.checkboxInput:checked {
+  background-color: #0284c7;
+  border-color: #0284c7;
+}
+
+.checkboxInput:checked::after {
+  content: "✔";
+  position: absolute;
+  color: white;
+  font-size: 14px;
+  top: -1px;
+  left: 3px;
+}
+
+/* --- Кнопки-пігулки (Обсяг, Частота) --- */
+.pillGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pillButton {
+  background-color: #0f172a;
+  border: 1px solid #475569;
+  color: #cbd5e1;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.pillButton:hover {
+  border-color: #38bdf8;
+  color: #f8fafc;
+}
+
+.pillButton.active {
+  background-color: #0284c7;
+  border-color: #0284c7;
+  color: white;
+}
+
+/* --- Ціна --- */
+.priceInputs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.priceInput {
+  width: 100%;
+  padding: 8px 12px;
+  background-color: #0f172a;
+  border: 1px solid #475569;
+  border-radius: 6px;
+  color: #f8fafc;
+  outline: none;
+}
+
+/* --- Сітка товарів --- */
+.contentArea {
+  flex: 1;
+}
+
+.gridContainer {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+}
+
+.card {
+  background-color: #1e293b;
+  border: 1px solid #334155;
+  padding: 24px;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  border-color: #475569;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+}
+
+.cardTitle {
+  margin-top: 0;
+  margin-bottom: 16px;
+  color: #f1f5f9;
+  font-size: 1.2rem;
+  line-height: 1.4;
+}
+
+.cardList {
+  padding: 0;
+  margin: 0 0 24px 0;
+  list-style: none;
+  color: #94a3b8;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.cardList li strong {
+  color: #cbd5e1;
+}
+
+.cardFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid #334155;
+}
+
+.price {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.detailsButton {
+  padding: 8px 14px;
+  background-color: #0284c7;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.detailsButton:hover {
+  background-color: #0369a1;
+}
+
+.noResults {
+  text-align: center;
+  padding: 40px;
+  color: #94a3b8;
+  font-size: 1.1rem;
+  background-color: #1e293b;
+  border-radius: 12px;
+  border: 1px dashed #475569;
+}
+
+/* --- Слайдер ціни --- */
+.priceInputs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.priceInput {
+  width: 100%;
+  padding: 8px 12px;
+  background-color: #0f172a;
+  border: 1px solid #475569;
+  border-radius: 6px;
+  color: #f8fafc;
+  outline: none;
+  text-align: center;
+  transition: border-color 0.2s;
+}
+
+.priceInput:focus {
+  border-color: #38bdf8;
+}
+
+/* Прибираємо стрілочки в input type="number" */
+.priceInput::-webkit-outer-spin-button,
+.priceInput::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.priceInput[type=number] {
+  -moz-appearance: textfield;
+}
+
+.sliderContainer {
+  position: relative;
+  height: 24px;
+  width: 100%;
+}
+
+.sliderTrack {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 100%;
+  height: 4px;
+  background-color: #334155;
+  border-radius: 4px;
+  z-index: 1;
+}
+
+.sliderRange {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 4px;
+  background-color: #0284c7; /* Колір обраного діапазону */
+  border-radius: 4px;
+  z-index: 2;
+}
+
+/* Подвійний повзунок */
+.rangeInput {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  pointer-events: none; /* Пропускаємо кліки крізь саму лінію */
+  outline: none;
+  margin: 0;
+}
+
+/* Стилі для Chrome, Safari, Edge */
+.rangeInput::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: auto; /* Робимо клікабельним ТІЛЬКИ кружечок */
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: #38bdf8;
+  cursor: grab;
+  border: 3px solid #0f172a;
+  transition: transform 0.1s;
+}
+
+.rangeInput::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.15);
+}
+
+/* Стилі для Firefox */
+.rangeInput::-moz-range-thumb {
+  pointer-events: auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: #38bdf8;
+  cursor: grab;
+  border: 3px solid #0f172a;
+  transition: transform 0.1s;
+}
+
+.rangeInput::-moz-range-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.15);
+}
