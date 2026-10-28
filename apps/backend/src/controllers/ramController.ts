@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import { Request, Response } from "express";
 import { RamRepository } from "../repositories/ramRepository";
 import { redisClient } from "../config/redis";
@@ -14,47 +16,35 @@ export class RamController {
 
   getAll = async (req: Request, res: Response): Promise<void> => {
     try {
-      if (req.query.search) {
-        const queryText = String(req.query.search);
-        const searchResults = await this.elasticService.search(queryText);
-        res.status(200).json(searchResults);
+      if (
+        req.query.search &&
+        typeof req.query.search === "string" &&
+        req.query.search.trim() !== ""
+      ) {
+        console.log("elastic");
+
+        const filters = req.query;
+
+        const models = await this.elasticService.searchWithFilters(filters);
+
+        res.json(models);
         return;
       }
 
-      const filters = {
-        manufacturer_id: req.query.manufacturer_id
-          ? Number(req.query.manufacturer_id)
-          : undefined,
-        type_id: req.query.type_id ? Number(req.query.type_id) : undefined,
-        form_factor_id: req.query.form_factor_id
-          ? Number(req.query.form_factor_id)
-          : undefined,
-        min_capacity: req.query.min_capacity
-          ? Number(req.query.min_capacity)
-          : undefined,
-        min_frequency: req.query.min_frequency
-          ? Number(req.query.min_frequency)
-          : undefined,
-        has_rgb:
-          req.query.has_rgb !== undefined
-            ? req.query.has_rgb === "true"
-            : undefined,
-        profile: req.query.profile ? String(req.query.profile) : undefined,
-      };
-
-      const filterString = JSON.stringify(filters);
-      const dynamicCacheKey = `${this.CACHE_KEY}_${filterString}`;
-
-      const cachedData = await redisClient.get(dynamicCacheKey);
+      const cachedData = await redisClient.get(this.CACHE_KEY);
 
       if (cachedData) {
         res.status(200).json(JSON.parse(cachedData));
+        console.log("redis");
+
         return;
       }
 
-      const data = await this.ramRepo.findAll(filters);
+      const data = await this.ramRepo.findAll();
 
-      await redisClient.setEx(dynamicCacheKey, 3600, JSON.stringify(data));
+      await redisClient.setEx(this.CACHE_KEY, 3600, JSON.stringify(data));
+
+      console.log("postgres");
 
       res.status(200).json(data);
     } catch (error: any) {
@@ -171,9 +161,32 @@ export class RamController {
 
       if (success) {
         await this.elasticService.deleteDocument(id);
+
+        if (existingRam.image_url) {
+          try {
+            const relativeFilePath = existingRam.image_url.replace(
+              "/uploads/",
+              "",
+            );
+
+            const uploadDir =
+              process.env.UPLOAD_DIR || path.join(__dirname, "../uploads");
+
+            const fullPath = path.join(uploadDir, relativeFilePath);
+
+            if (fs.existsSync(fullPath)) {
+              fs.unlinkSync(fullPath);
+              console.log(`Файл ${fullPath} успішно видалено.`);
+            }
+          } catch (fileErr) {
+            console.error("Помилка при фізичному видаленні фото:", fileErr);
+          }
+        }
       }
 
-      res.status(201).json(success);
+      res
+        .status(200)
+        .json({ success: true, message: "Модель та її фото успішно видалено" });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

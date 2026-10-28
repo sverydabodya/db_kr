@@ -65,6 +65,29 @@
   color: #ffffff;
 }
 
+.logoutButton {
+  background: transparent;
+  border: 1px solid #475569;
+  color: #94a3b8;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.logoutButton:hover {
+  color: #fca5a5; /* Світло-червоний при наведенні, що підказує про дію "Вийти" */
+  border-color: #fca5a5;
+  background-color: rgba(252, 165, 165, 0.1);
+}
+
+.logoutButton:active {
+  transform: scale(0.98);
+}
+
 /* --- Широкий центральний контейнер --- */
 .mainContent {
   flex: 1;

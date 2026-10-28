@@ -21,7 +21,9 @@
   position: sticky;
   top: 100px;
   overflow-y: auto;
-  max-height: calc(100vh - 120px); /* Скрол всередині панелі, якщо фільтрів багато */
+  max-height: calc(
+    100vh - 120px
+  ); /* Скрол всередині панелі, якщо фільтрів багато */
 }
 
 /* Кастомний скролбар для панелі фільтрів */
@@ -194,12 +196,18 @@
 /* --- Сітка товарів --- */
 .contentArea {
   flex: 1;
+  /* Важливо! Запобігає схлопуванню, якщо моделей немає */
+  min-height: 500px;
 }
 
 .gridContainer {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  /* Замість auto-fill з 1fr, використовуємо фіксований розмір колонок. 
+     Якщо екран вужчий, вони будуть переноситися, але не будуть розтягуватися на весь екран */
+  grid-template-columns: repeat(auto-fill, 280px);
   gap: 24px;
+  /* Можна додати вирівнювання по лівому краю, щоб картки не плавали */
+  justify-content: start;
 }
 
 .card {
@@ -210,6 +218,9 @@
   transition: all 0.3s ease;
   display: flex;
   flex-direction: column;
+  /* Якщо хочеш гарантувати однакову висоту для всіх карток в ряду */
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .card:hover {
@@ -311,7 +322,7 @@
   -webkit-appearance: none;
   margin: 0;
 }
-.priceInput[type=number] {
+.priceInput[type="number"] {
   -moz-appearance: textfield;
 }
 

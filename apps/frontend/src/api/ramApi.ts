@@ -3,11 +3,13 @@ import type {
   Manufacturer,
   MemoryType,
   FormFactor,
-} from "@ram-catalog/shared"; 
+} from "@ram-catalog/shared";
 
 const API_PREFIX = "/api";
 
 export const ramApi = {
+  // --- GET ЗАПИТИ (ОТРИМАННЯ ДАНИХ) ---
+
   getModels: async (filters?: {
     manufacturer_id?: number;
     type_id?: number;
@@ -45,6 +47,32 @@ export const ramApi = {
     }
     return response.json();
   },
+
+  getManufacturers: async (): Promise<Manufacturer[]> => {
+    const response = await fetch(`${API_PREFIX}/manufacturers`);
+    if (!response.ok) {
+      throw new Error("Не вдалося завантажити список виробників");
+    }
+    return response.json();
+  },
+
+  getMemoryTypes: async (): Promise<MemoryType[]> => {
+    const response = await fetch(`${API_PREFIX}/memoryTypes`);
+    if (!response.ok) {
+      throw new Error("Не вдалося завантажити стандарти пам'яті");
+    }
+    return response.json();
+  },
+
+  getFormFactors: async (): Promise<FormFactor[]> => {
+    const response = await fetch(`${API_PREFIX}/formFactors`);
+    if (!response.ok) {
+      throw new Error("Не вдалося завантажити формфактори");
+    }
+    return response.json();
+  },
+
+  // --- POST ЗАПИТИ (СТВОРЕННЯ ДАНИХ) ---
 
   createModel: async (newModel: Omit<RamModel, "ram_id">, token: string) => {
     const response = await fetch(`${API_PREFIX}/ram`, {
@@ -91,7 +119,7 @@ export const ramApi = {
     newType: Omit<MemoryType, "type_id">,
     token: string,
   ) => {
-    const response = await fetch(`${API_PREFIX}/memory-types`, {
+    const response = await fetch(`${API_PREFIX}/memoryTypes`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -114,7 +142,7 @@ export const ramApi = {
     newForm: Omit<FormFactor, "form_factor_id">,
     token: string,
   ) => {
-    const response = await fetch(`${API_PREFIX}/form-factors`, {
+    const response = await fetch(`${API_PREFIX}/formFactors`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -127,5 +155,141 @@ export const ramApi = {
     if (!response.ok)
       throw new Error(data.error || "Помилка при додаванні формфактора");
     return { success: true, message: "Формфактор успішно додано!", data };
+  },
+
+  // --- PUT ЗАПИТИ (ОНОВЛЕННЯ) ---
+
+  updateModel: async (
+    id: number,
+    updatedModel: Partial<RamModel>,
+    token: string,
+  ) => {
+    const response = await fetch(`${API_PREFIX}/ram/${id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(updatedModel),
+    });
+
+    const data = await response.json();
+    if (!response.ok)
+      throw new Error(data.error || "Помилка при оновленні моделі");
+    return { success: true, message: "Модель успішно оновлено!", data };
+  },
+
+  updateManufacturer: async (
+    id: number,
+    updatedMan: Partial<Manufacturer>,
+    token: string,
+  ) => {
+    const response = await fetch(`${API_PREFIX}/manufacturers/${id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(updatedMan),
+    });
+
+    const data = await response.json();
+    if (!response.ok)
+      throw new Error(data.error || "Помилка при оновленні виробника");
+    return { success: true, message: "Виробника успішно оновлено!", data };
+  },
+
+  updateMemoryType: async (
+    id: number,
+    updatedType: Partial<MemoryType>,
+    token: string,
+  ) => {
+    const response = await fetch(`${API_PREFIX}/memoryTypes/${id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(updatedType),
+    });
+
+    const data = await response.json();
+    if (!response.ok)
+      throw new Error(data.error || "Помилка при оновленні стандарту");
+    return { success: true, message: "Стандарт успішно оновлено!", data };
+  },
+
+  updateFormFactor: async (
+    id: number,
+    updatedForm: Partial<FormFactor>,
+    token: string,
+  ) => {
+    const response = await fetch(`${API_PREFIX}/formFactors/${id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(updatedForm),
+    });
+
+    const data = await response.json();
+    if (!response.ok)
+      throw new Error(data.error || "Помилка при оновленні формфактора");
+    return { success: true, message: "Формфактор успішно оновлено!", data };
+  },
+
+  // --- DELETE ЗАПИТИ (ВИДАЛЕННЯ) ---
+
+  deleteModel: async (id: number, token: string) => {
+    const response = await fetch(`${API_PREFIX}/ram/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || "Помилка при видаленні моделі");
+    }
+    return { success: true, message: "Модель успішно видалено!" };
+  },
+
+  deleteManufacturer: async (id: number, token: string) => {
+    const response = await fetch(`${API_PREFIX}/manufacturers/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || "Помилка при видаленні виробника");
+    }
+    return { success: true, message: "Виробника успішно видалено!" };
+  },
+
+  deleteMemoryType: async (id: number, token: string) => {
+    const response = await fetch(`${API_PREFIX}/memoryTypes/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || "Помилка при видаленні стандарту");
+    }
+    return { success: true, message: "Стандарт успішно видалено!" };
+  },
+
+  deleteFormFactor: async (id: number, token: string) => {
+    const response = await fetch(`${API_PREFIX}/formFactors/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || "Помилка при видаленні формфактора");
+    }
+    return { success: true, message: "Формфактор успішно видалено!" };
   },
 };

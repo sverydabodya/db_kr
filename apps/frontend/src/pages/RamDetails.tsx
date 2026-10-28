@@ -4,6 +4,15 @@ import { ramApi } from "../api/ramApi";
 import type { RamModel } from "@ram-catalog/shared";
 import styles from "./RamDetails.module.css";
 
+// Словник для красивого виведення ключів extra_features
+const featureLabels: Record<string, string> = {
+  has_rgb: "RGB підсвічування",
+  ecc: "Підтримка ECC",
+  heatsink: "Охолодження (Радіатор)",
+  tested_voltage: "Тестова напруга",
+  profiles: "Профілі розгону",
+};
+
 export default function RamDetails() {
   const { id } = useParams<{ id: string }>();
   const [model, setModel] = useState<RamModel | null>(null);
@@ -75,14 +84,6 @@ export default function RamDetails() {
             {model.manufacturer_name} {model.model_name}
           </h1>
 
-          <div className={styles.priceBlock}>
-            <div className={styles.price}>
-              {model.description
-                ? model.description.substring(0, 80) + "..."
-                : "Оперативна пам'ять високої продуктивності"}
-            </div>
-          </div>
-
           <h3 className={styles.specsTitle}>Характеристики</h3>
           <table className={styles.specsTable}>
             <tbody>
@@ -112,10 +113,23 @@ export default function RamDetails() {
                   <td>CL{model.cas_latency}</td>
                 </tr>
               )}
-              <tr>
-                <td>Наявність підсвічування</td>
-                <td>{model.extra_features?.has_rgb ? "Так (RGB)" : "Немає"}</td>
-              </tr>
+
+              {/* Динамічний вивід усіх додаткових параметрів з extra_features */}
+              {model.extra_features &&
+                Object.entries(model.extra_features).map(([key, value]) => {
+                  // Форматуємо значення для гарного виведення
+                  let displayVal = String(value);
+                  if (value === true) displayVal = "Так";
+                  if (value === false) displayVal = "Ні";
+                  if (Array.isArray(value)) displayVal = value.join(", ");
+
+                  return (
+                    <tr key={key}>
+                      <td>{featureLabels[key] || key}</td>
+                      <td>{displayVal}</td>
+                    </tr>
+                  );
+                })}
             </tbody>
           </table>
 

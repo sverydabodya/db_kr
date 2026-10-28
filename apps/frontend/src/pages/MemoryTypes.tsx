@@ -12,23 +12,10 @@ export default function MemoryTypes() {
     const fetchMemoryTypes = async () => {
       try {
         setLoading(true);
-        // Отримуємо моделі, щоб витягнути унікальні стандарти пам'яті
-        const models = await ramApi.getModels();
+        // Отримуємо стандарти пам'яті напряму з їхньої таблиці через API
+        const data = await ramApi.getMemoryTypes();
 
-        const map = new Map<number, MemoryType>();
-        models.forEach((m) => {
-          if (m.type_id && m.type_name) {
-            map.set(m.type_id, {
-              type_id: m.type_id,
-              type_name: m.type_name,
-              default_voltage: 1.1, // Базове значення за замовчуванням
-              description: m.description || null,
-              image_url: null,
-            });
-          }
-        });
-
-        setMemoryTypes(Array.from(map.values()));
+        setMemoryTypes(data);
         setError(null);
       } catch (err: any) {
         setError(err.message || "Помилка завантаження стандартів пам'яті");
@@ -59,22 +46,36 @@ export default function MemoryTypes() {
       <div className={styles.gridContainer}>
         {memoryTypes.map((type) => (
           <div key={type.type_id} className={styles.card}>
-            {type.image_url ? (
-              <img
-                src={type.image_url}
-                alt={`Схема ${type.type_name}`}
-                style={{
-                  width: "100%",
-                  height: "160px",
-                  objectFit: "contain",
-                  marginBottom: "20px",
-                }}
-              />
-            ) : (
-              <div className={styles.imagePlaceholder}>
-                Схема {type.type_name}
-              </div>
-            )}
+            
+            {/* Уніфікований контейнер для зображення (схеми) */}
+            <div style={{
+              width: "100%", 
+              height: "160px", 
+              marginBottom: "16px", 
+              backgroundColor: "#0f172a", 
+              borderRadius: "8px", 
+              display: "flex", 
+              alignItems: "center", 
+              justifyContent: "center", 
+              overflow: "hidden",
+              padding: "16px"
+            }}>
+              {type.image_url ? (
+                <img
+                  src={type.image_url}
+                  alt={`Схема ${type.type_name}`}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain" // Зберігає пропорції без розтягування
+                  }}
+                />
+              ) : (
+                <span style={{ color: "#64748b", fontSize: "0.85rem", textAlign: "center" }}>
+                  Схема {type.type_name}
+                </span>
+              )}
+            </div>
 
             <h3 className={styles.name}>{type.type_name}</h3>
 

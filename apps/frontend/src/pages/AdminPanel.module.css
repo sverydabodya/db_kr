@@ -1,6 +1,7 @@
 .adminContainer {
-  max-width: 800px;
+  max-width: 1900px;
   margin: 0 auto;
+  padding: 0 20px;
 }
 
 .pageTitle {
@@ -40,7 +41,9 @@
   font-size: 0.95rem;
 }
 
-.input, .select, .textarea {
+.input,
+.select,
+.textarea {
   padding: 12px 16px;
   background-color: #0f172a;
   border: 1px solid #475569;
@@ -52,7 +55,9 @@
   font-family: inherit;
 }
 
-.input:focus, .select:focus, .textarea:focus {
+.input:focus,
+.select:focus,
+.textarea:focus {
   border-color: #38bdf8;
 }
 
@@ -145,4 +150,100 @@
   background-color: #0284c7;
   color: white;
   border-color: #0284c7;
+}
+
+.splitLayout {
+  display: grid;
+  /* Робимо пропорцію колонок більш гнучкою: форма трохи ширша, таблиця компактніша */
+  grid-template-columns: 1.1fr 1.2fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.listCard {
+  background-color: #1e293b;
+  border: 1px solid #334155;
+  padding: 24px;
+  border-radius: 12px;
+  max-height: 650px;
+  overflow-y: auto;
+  /* Додаємо обов'язковий box-sizing, щоб padding не ламав ширину */
+  box-sizing: border-box;
+}
+
+.buttonGroup {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.cancelBtn {
+  background-color: #475569;
+  color: white;
+  border: none;
+  padding: 14px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* СТИЛІ ТАБЛИЦІ */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  /* Забороняємо таблиці розштовхувати контейнер */
+  table-layout: fixed;
+}
+
+.table th,
+.table td {
+  padding: 10px 8px;
+  text-align: left;
+  border-bottom: 1px solid #334155;
+  color: #cbd5e1;
+  font-size: 0.9rem;
+  /* Додаємо обрізання тексту трикраткою, якщо він занадто довгий */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table th {
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+/* Явно задаємо ширину колонки для дій, щоб кнопки завжди поміщалися */
+.table th:last-child,
+.table td:last-child {
+  width: 110px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.editBtn {
+  background: #0284c7;
+  color: white;
+  border: none;
+  padding: 5px 8px;
+  border-radius: 4px;
+  margin-right: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.deleteBtn {
+  background: #dc2626;
+  color: white;
+  border: none;
+  padding: 5px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
 }

@@ -12,24 +12,10 @@ export default function Manufacturers() {
     const fetchManufacturers = async () => {
       try {
         setLoading(true);
-        // Отримуємо моделі, щоб витягнути унікальних виробників (або можна розширити ramApi окремим методом)
-        const models = await ramApi.getModels();
+        // Викликаємо готовий метод з ramApi, який забирає чисті дані з таблиці виробників
+        const data = await ramApi.getManufacturers();
 
-        const map = new Map<number, Manufacturer>();
-        models.forEach((m) => {
-          if (m.manufacturer_id && m.manufacturer_name) {
-            map.set(m.manufacturer_id, {
-              manufacturer_id: m.manufacturer_id,
-              name: m.manufacturer_name,
-              country: null,
-              website: null,
-              description: m.description || null,
-              logo_url: null,
-            });
-          }
-        });
-
-        setManufacturers(Array.from(map.values()));
+        setManufacturers(data);
         setError(null);
       } catch (err: any) {
         setError(err.message || "Помилка завантаження виробників");
@@ -58,22 +44,36 @@ export default function Manufacturers() {
       <div className={styles.gridContainer}>
         {manufacturers.map((manufacturer) => (
           <div key={manufacturer.manufacturer_id} className={styles.card}>
-            {manufacturer.logo_url ? (
-              <img
-                src={manufacturer.logo_url}
-                alt={`Логотип ${manufacturer.name}`}
-                style={{
-                  width: "100%",
-                  height: "140px",
-                  objectFit: "contain",
-                  marginBottom: "20px",
-                }}
-              />
-            ) : (
-              <div className={styles.logoPlaceholder}>
-                {manufacturer.name} Logo
-              </div>
-            )}
+            
+            {/* Контейнер для логотипа з фіксованою висотою та вирівнюванням */}
+            <div style={{
+              width: "100%", 
+              height: "160px", 
+              marginBottom: "16px", 
+              backgroundColor: "#0f172a", 
+              borderRadius: "8px", 
+              display: "flex", 
+              alignItems: "center", 
+              justifyContent: "center", 
+              overflow: "hidden",
+              padding: "16px"
+            }}>
+              {manufacturer.logo_url ? (
+                <img
+                  src={manufacturer.logo_url}
+                  alt={`Логотип ${manufacturer.name}`}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain" // Зберігає пропорції логотипа
+                  }}
+                />
+              ) : (
+                <span style={{ color: "#64748b", fontSize: "0.85rem", textAlign: "center" }}>
+                  {manufacturer.name} Logo
+                </span>
+              )}
+            </div>
 
             <h3 className={styles.name}>{manufacturer.name}</h3>
 

@@ -6,12 +6,16 @@ import Manufacturers from "./pages/Manufacturers";
 import MemoryTypes from "./pages/MemoryTypes";
 import FormFactors from "./pages/FormFactors";
 import AdminPanel from "./pages/AdminPanel";
+import ProtectedRoute from "./components/ProtectedRoute";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import { useAuth } from "./context/AuthContext";
 
 function App() {
+  const { isAuthenticated, logout } = useAuth();
   return (
     <Router>
       <div className={styles.appContainer}>
-        {/* Горизонтальна навігація */}
         <header className={styles.header}>
           <Link to="/" className={styles.headerLogo}>
             Довідник ОЗП
@@ -31,25 +35,40 @@ function App() {
               Формфактори
             </Link>
 
-            <Link
-              to="/admin"
-              className={`${styles.navLink} ${styles.adminBtn}`}
-            >
-              Вхід (Адмін)
-            </Link>
+            {isAuthenticated ? (
+              <>
+                <Link to="/admin" className={styles.navLink}>
+                  Адмін панель
+                </Link>
+                <button onClick={logout} className={styles.logoutButton}>
+                  Вийти
+                </button>
+              </>
+            ) : (
+              <>
+                <Link to="/login" className={styles.navLink}>
+                  Увійти
+                </Link>
+                <Link to="/register" className={styles.navLink}>
+                  Реєстрація
+                </Link>
+              </>
+            )}
           </nav>
         </header>
 
-        {/* Головна робоча область */}
         <main className={styles.mainContent}>
           <Routes>
             <Route path="/" element={<Catalog />} />
             <Route path="/ram/:id" element={<RamDetails />} />{" "}
-            {/* <-- Новий роут */}
             <Route path="/manufacturers" element={<Manufacturers />} />
             <Route path="/memory-types" element={<MemoryTypes />} />
             <Route path="/form-factors" element={<FormFactors />} />
-            <Route path="/admin" element={<AdminPanel />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route element={<ProtectedRoute />}>
+              <Route path="/admin" element={<AdminPanel />} />
+            </Route>
           </Routes>
         </main>
       </div>

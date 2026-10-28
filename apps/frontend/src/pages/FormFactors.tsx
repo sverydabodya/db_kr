@@ -12,22 +12,10 @@ export default function FormFactors() {
     const fetchFormFactors = async () => {
       try {
         setLoading(true);
-        // Отримуємо моделі, щоб витягнути унікальні формфактори (або можна створити окремий ендпоінт /api/form-factors)
-        const models = await ramApi.getModels();
+        // Отримуємо формфактори напряму з таблиці через API
+        const data = await ramApi.getFormFactors();
 
-        const map = new Map<number, FormFactor>();
-        models.forEach((m) => {
-          if (m.form_factor_id && m.form_factor_name) {
-            map.set(m.form_factor_id, {
-              form_factor_id: m.form_factor_id,
-              form_factor_name: m.form_factor_name,
-              description: m.description || null,
-              image_url: null,
-            });
-          }
-        });
-
-        setFormFactors(Array.from(map.values()));
+        setFormFactors(data);
         setError(null);
       } catch (err: any) {
         setError(err.message || "Помилка завантаження формфакторів");
@@ -58,22 +46,36 @@ export default function FormFactors() {
       <div className={styles.gridContainer}>
         {formFactors.map((formFactor) => (
           <div key={formFactor.form_factor_id} className={styles.card}>
-            {formFactor.image_url ? (
-              <img
-                src={formFactor.image_url}
-                alt={`Креслення ${formFactor.form_factor_name}`}
-                style={{
-                  width: "100%",
-                  height: "160px",
-                  objectFit: "contain",
-                  marginBottom: "20px",
-                }}
-              />
-            ) : (
-              <div className={styles.imagePlaceholder}>
-                Креслення {formFactor.form_factor_name}
-              </div>
-            )}
+            
+            {/* Уніфікований контейнер для зображення (креслення) */}
+            <div style={{
+              width: "100%", 
+              height: "160px", 
+              marginBottom: "16px", 
+              backgroundColor: "#0f172a", 
+              borderRadius: "8px", 
+              display: "flex", 
+              alignItems: "center", 
+              justifyContent: "center", 
+              overflow: "hidden",
+              padding: "16px"
+            }}>
+              {formFactor.image_url ? (
+                <img
+                  src={formFactor.image_url}
+                  alt={`Креслення ${formFactor.form_factor_name}`}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain" // Зберігає пропорції без розтягування
+                  }}
+                />
+              ) : (
+                <span style={{ color: "#64748b", fontSize: "0.85rem", textAlign: "center" }}>
+                  Креслення {formFactor.form_factor_name}
+                </span>
+              )}
+            </div>
 
             <h3 className={styles.name}>
               <span className={styles.icon}>📏</span>{" "}
