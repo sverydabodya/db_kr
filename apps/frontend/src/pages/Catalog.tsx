@@ -15,15 +15,17 @@ const ChevronIcon = () => (
   </svg>
 );
 
-// Словник для перекладу системних ключів у красиві назви
-const featureTranslations: Record<string, string> = {
-  has_rgb: "RGB підсвічування",
-  ecc: "Підтримка ECC",
-};
+export interface FeatureDefinition {
+  feature_id?: number;
+  feature_name: string;
+  display_type: "boolean" | "text" | "select" | "multiselect" | "number";
+  options?: string[];
+}
 
 export default function Catalog() {
   const [allModels, setAllModels] = useState<RamModel[]>([]);
   const [displayModels, setDisplayModels] = useState<RamModel[]>([]);
+  const [featureDefs, setFeatureDefs] = useState<FeatureDefinition[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,15 +40,17 @@ export default function Catalog() {
   const [selectedFrequencies, setSelectedFrequencies] = useState<number[]>([]);
   const [selectedCas, setSelectedCas] = useState<number[]>([]);
 
-  // Нові динамічні стейти для extra_features
-  const [selectedProfiles, setSelectedProfiles] = useState<string[]>([]);
-  const [selectedHeatsinks, setSelectedHeatsinks] = useState<string[]>([]);
-  const [selectedVoltages, setSelectedVoltages] = useState<string[]>([]);
+  // Для значень з множинним вибором (селекти, тексти, числа)
+  const [selectedExtraFeatures, setSelectedExtraFeatures] = useState<
+    Record<string, string[]>
+  >({});
+
+  // Для булевих характеристик (чекбокси "наявності")
   const [selectedBoolFeatures, setSelectedBoolFeatures] = useState<string[]>(
     [],
   );
 
-  // Стейти для довідників (з таблиць БД)
+  // Стейти для довідників
   const [manufacturers, setManufacturers] = useState<Manufacturer[]>([]);
   const [memoryTypes, setMemoryTypes] = useState<MemoryType[]>([]);
   const [formFactors, setFormFactors] = useState<FormFactor[]>([]);
@@ -54,18 +58,20 @@ export default function Catalog() {
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        // Завантажуємо всі дані паралельно для максимальної швидкості
-        const [modelsData, mfrsData, typesData, formsData] = await Promise.all([
-          ramApi.getModels(),
-          ramApi.getManufacturers(),
-          ramApi.getMemoryTypes(),
-          ramApi.getFormFactors(),
-        ]);
+        const [modelsData, mfrsData, typesData, formsData, defsData] =
+          await Promise.all([
+            ramApi.getModels(),
+            ramApi.getManufacturers(),
+            ramApi.getMemoryTypes(),
+            ramApi.getFormFactors(),
+            ramApi.getFeatureDefinitions().catch(() => []), // Якщо довідник ще не готовий, повертаємо пустий масив
+          ]);
 
         setAllModels(modelsData);
         setManufacturers(mfrsData);
         setMemoryTypes(typesData);
         setFormFactors(formsData);
+        setFeatureDefs(defsData);
 
         if (searchTerm.trim() === "") {
           setDisplayModels(modelsData);
@@ -104,7 +110,7 @@ export default function Catalog() {
     return () => clearTimeout(timer);
   }, [searchTerm, allModels]);
 
-  // --- ДИНАМІЧНІ ФІЛЬТРИ (залишаються з моделей, оскільки у них немає своїх таблиць) ---
+  // --- БАЗОВІ ФІЛЬТРИ ---
   const availableCapacities = useMemo(
     () =>
       Array.from(new Set(allModels.map((m) => m.capacity_gb))).sort(
@@ -133,51 +139,80 @@ export default function Catalog() {
     [allModels],
   );
 
-  const availableProfiles = useMemo(() => {
-    const items = new Set<string>();
-    allModels.forEach((m) => {
-      let profs = m.extra_features?.profiles;
-      if (typeof profs === "string") {
-        try {
-          profs = JSON.parse(profs);
-        } catch (e) {}
-      }
-      if (Array.isArray(profs)) profs.forEach((p) => items.add(p));
-    });
-    return Array.from(items).sort();
-  }, [allModels]);
-
-  const availableHeatsinks = useMemo(() => {
-    const items = new Set<string>();
-    allModels.forEach((m) => {
-      if (m.extra_features?.heatsink) items.add(m.extra_features.heatsink);
-    });
-    return Array.from(items).sort();
-  }, [allModels]);
-
-  const availableVoltages = useMemo(() => {
-    const items = new Set<string>();
-    allModels.forEach((m) => {
-      if (m.extra_features?.tested_voltage)
-        items.add(String(m.extra_features.tested_voltage));
-    });
-    return Array.from(items).sort();
-  }, [allModels]);
-
+  // --- ЗБИРАННЯ БУЛЕВИХ ХАРАКТЕРИСТИК (на основі довідника featureDefs) ---
   const availableBoolFeatures = useMemo(() => {
-    const items = new Set<string>();
-    allModels.forEach((m) => {
-      if (m.extra_features) {
-        Object.entries(m.extra_features).forEach(([k, v]) => {
-          if (v === true || v === "true" || v === false || v === "false")
-            items.add(k);
+    const keysSet = new Set<string>();
+    const boolDefNames = featureDefs
+      .filter((d) => d.display_type === "boolean")
+      .map((d) => d.feature_name);
+
+    allModels.forEach((model) => {
+      if (model.extra_features && typeof model.extra_features === "object") {
+        Object.entries(model.extra_features).forEach(([key, val]) => {
+          // Враховуємо старий формат ("Є") і новий (true), або якщо характеристика є булевою в довіднику
+          if (
+            val === "Є" ||
+            val === true ||
+            (boolDefNames.includes(key) && val)
+          ) {
+            keysSet.add(key);
+          }
         });
       }
     });
-    return Array.from(items).sort();
-  }, [allModels]);
+    return Array.from(keysSet).sort();
+  }, [allModels, featureDefs]);
 
-  // Універсальна функція перемикання фільтрів
+  // --- ЗБИРАННЯ ІНШИХ ДИНАМІЧНИХ ЗНАЧЕНЬ ---
+  const dynamicFeatureMap = useMemo(() => {
+    const map: Record<string, Set<string>> = {};
+    const boolDefNames = featureDefs
+      .filter((d) => d.display_type === "boolean")
+      .map((d) => d.feature_name);
+
+    allModels.forEach((model) => {
+      if (model.extra_features && typeof model.extra_features === "object") {
+        Object.entries(model.extra_features).forEach(([key, val]) => {
+          // Пропускаємо булеві значення, порожні значення та false
+          if (
+            val === "Є" ||
+            val === true ||
+            val === false ||
+            boolDefNames.includes(key) ||
+            val === null ||
+            val === undefined ||
+            val === ""
+          ) {
+            return;
+          }
+
+          if (!map[key]) {
+            map[key] = new Set();
+          }
+
+          if (Array.isArray(val)) {
+            val.forEach((item) => {
+              if (item != null) map[key].add(String(item));
+            });
+          } else {
+            map[key].add(String(val));
+          }
+        });
+      }
+    });
+
+    const result: Record<string, string[]> = {};
+    Object.keys(map).forEach((key) => {
+      const arr = Array.from(map[key]).sort();
+      if (arr.length > 0) {
+        result[key] = arr;
+      }
+    });
+
+    return result;
+  }, [allModels, featureDefs]);
+
+  // --- ОБРОБНИКИ КЛІКІВ ---
   const toggleFilter = <T,>(
     currentSelection: T[],
     setSelection: React.Dispatch<React.SetStateAction<T[]>>,
@@ -190,7 +225,24 @@ export default function Catalog() {
     );
   };
 
-  // --- ФІЛЬТРАЦІЯ ---
+  const toggleExtraFeature = (featureKey: string, value: string) => {
+    setSelectedExtraFeatures((prev) => {
+      const currentList = prev[featureKey] || [];
+      const updatedList = currentList.includes(value)
+        ? currentList.filter((item) => item !== value)
+        : [...currentList, value];
+
+      if (updatedList.length === 0) {
+        const copy = { ...prev };
+        delete copy[featureKey];
+        return copy;
+      }
+
+      return { ...prev, [featureKey]: updatedList };
+    });
+  };
+
+  // --- ФІЛЬТРАЦІЯ МОДЕЛЕЙ ---
   const filteredModels = useMemo(() => {
     return displayModels.filter((model) => {
       const matchesBrand =
@@ -211,30 +263,27 @@ export default function Catalog() {
         selectedCas.length === 0 ||
         (model.cas_latency != null && selectedCas.includes(model.cas_latency));
 
-      const matchesHeatsink =
-        selectedHeatsinks.length === 0 ||
-        selectedHeatsinks.includes(model.extra_features?.heatsink);
-      const matchesVoltage =
-        selectedVoltages.length === 0 ||
-        selectedVoltages.includes(String(model.extra_features?.tested_voltage));
+      // Динамічні фільтри (мультиселект/текст)
+      const matchesExtra = Object.entries(selectedExtraFeatures).every(
+        ([key, selectedValues]) => {
+          if (selectedValues.length === 0) return true;
+          const modelVal = model.extra_features?.[key];
+          if (modelVal === undefined || modelVal === null || modelVal === false)
+            return false;
 
-      const matchesProfiles =
-        selectedProfiles.length === 0 ||
-        (() => {
-          let profs = model.extra_features?.profiles;
-          if (typeof profs === "string")
-            try {
-              profs = JSON.parse(profs);
-            } catch (e) {}
-          return (
-            Array.isArray(profs) &&
-            selectedProfiles.some((sp) => profs.includes(sp))
-          );
-        })();
+          if (Array.isArray(modelVal)) {
+            return selectedValues.some((sv) =>
+              modelVal.map(String).includes(sv),
+            );
+          }
+          return selectedValues.includes(String(modelVal));
+        },
+      );
 
+      // Булеві характеристики (чекбокси)
       const matchesBools = selectedBoolFeatures.every((feat) => {
         const val = model.extra_features?.[feat];
-        return val === true || val === "true";
+        return val === "Є" || val === true || val === "Так";
       });
 
       return (
@@ -244,9 +293,7 @@ export default function Catalog() {
         matchesCap &&
         matchesFreq &&
         matchesCas &&
-        matchesHeatsink &&
-        matchesVoltage &&
-        matchesProfiles &&
+        matchesExtra &&
         matchesBools
       );
     });
@@ -258,13 +305,10 @@ export default function Catalog() {
     selectedCapacities,
     selectedFrequencies,
     selectedCas,
-    selectedHeatsinks,
-    selectedVoltages,
-    selectedProfiles,
+    selectedExtraFeatures,
     selectedBoolFeatures,
   ]);
 
-  // --- СКИНУТИ ВСІ ФІЛЬТРИ ---
   const handleResetFilters = () => {
     setSearchTerm("");
     setSelectedManufacturers([]);
@@ -273,9 +317,10 @@ export default function Catalog() {
     setSelectedCapacities([]);
     setSelectedFrequencies([]);
     setSelectedCas([]);
+    setSelectedExtraFeatures({});
+    setSelectedBoolFeatures([]);
   };
 
-  // Перевірка, чи є хоча б один активний фільтр (щоб показувати кнопку за потреби)
   const hasActiveFilters = useMemo(() => {
     return (
       searchTerm.trim() !== "" ||
@@ -284,7 +329,9 @@ export default function Catalog() {
       selectedFormFactors.length > 0 ||
       selectedCapacities.length > 0 ||
       selectedFrequencies.length > 0 ||
-      selectedCas.length > 0
+      selectedCas.length > 0 ||
+      Object.keys(selectedExtraFeatures).length > 0 ||
+      selectedBoolFeatures.length > 0
     );
   }, [
     searchTerm,
@@ -294,6 +341,8 @@ export default function Catalog() {
     selectedCapacities,
     selectedFrequencies,
     selectedCas,
+    selectedExtraFeatures,
+    selectedBoolFeatures,
   ]);
 
   return (
@@ -332,20 +381,14 @@ export default function Catalog() {
                   borderRadius: "8px",
                   fontWeight: 600,
                   cursor: "pointer",
-                  transition: "background-color 0.2s",
                 }}
-                onMouseOver={(e) =>
-                  (e.currentTarget.style.backgroundColor = "#475569")
-                }
-                onMouseOut={(e) =>
-                  (e.currentTarget.style.backgroundColor = "#334155")
-                }
               >
                 Скинути фільтри ✕
               </button>
             </div>
           )}
 
+          {/* Бренд */}
           <details className={styles.filterDetails} open>
             <summary className={styles.filterSummary}>
               Бренд <ChevronIcon />
@@ -371,6 +414,7 @@ export default function Catalog() {
             </div>
           </details>
 
+          {/* Обсяг пам'яті */}
           <details className={styles.filterDetails} open>
             <summary className={styles.filterSummary}>
               Обсяг пам'яті <ChevronIcon />
@@ -396,6 +440,7 @@ export default function Catalog() {
             </div>
           </details>
 
+          {/* Частота */}
           <details className={styles.filterDetails} open>
             <summary className={styles.filterSummary}>
               Частота, МГц <ChevronIcon />
@@ -421,6 +466,7 @@ export default function Catalog() {
             </div>
           </details>
 
+          {/* Тип пам'яті */}
           <details className={styles.filterDetails} open>
             <summary className={styles.filterSummary}>
               Тип пам'яті <ChevronIcon />
@@ -442,6 +488,7 @@ export default function Catalog() {
             </div>
           </details>
 
+          {/* Формфактор */}
           <details className={styles.filterDetails} open>
             <summary className={styles.filterSummary}>
               Формфактор <ChevronIcon />
@@ -467,101 +514,23 @@ export default function Catalog() {
             </div>
           </details>
 
-          <details className={styles.filterDetails} open>
-            <summary className={styles.filterSummary}>
-              CAS Latency <ChevronIcon />
-            </summary>
-            <div className={styles.filterContent}>
-              <div className={styles.pillGrid}>
-                {availableCas.map((cas) => (
-                  <button
-                    key={cas}
-                    onClick={() =>
-                      toggleFilter(selectedCas, setSelectedCas, cas)
-                    }
-                    className={`${styles.pillButton} ${selectedCas.includes(cas) ? styles.active : ""}`}
-                  >
-                    CL{cas}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </details>
-
-          {availableProfiles.length > 0 && (
+          {/* CAS Latency */}
+          {availableCas.length > 0 && (
             <details className={styles.filterDetails} open>
               <summary className={styles.filterSummary}>
-                Профілі розгону <ChevronIcon />
-              </summary>
-              <div className={styles.filterContent}>
-                {availableProfiles.map((profile) => (
-                  <label key={profile} className={styles.checkboxLabel}>
-                    <input
-                      type="checkbox"
-                      className={styles.checkboxInput}
-                      checked={selectedProfiles.includes(profile)}
-                      onChange={() =>
-                        toggleFilter(
-                          selectedProfiles,
-                          setSelectedProfiles,
-                          profile,
-                        )
-                      }
-                    />
-                    {profile}
-                  </label>
-                ))}
-              </div>
-            </details>
-          )}
-
-          {availableHeatsinks.length > 0 && (
-            <details className={styles.filterDetails} open>
-              <summary className={styles.filterSummary}>
-                Охолодження (Радіатор) <ChevronIcon />
-              </summary>
-              <div className={styles.filterContent}>
-                {availableHeatsinks.map((heatsink) => (
-                  <label key={heatsink} className={styles.checkboxLabel}>
-                    <input
-                      type="checkbox"
-                      className={styles.checkboxInput}
-                      checked={selectedHeatsinks.includes(heatsink)}
-                      onChange={() =>
-                        toggleFilter(
-                          selectedHeatsinks,
-                          setSelectedHeatsinks,
-                          heatsink,
-                        )
-                      }
-                    />
-                    {heatsink}
-                  </label>
-                ))}
-              </div>
-            </details>
-          )}
-
-          {availableVoltages.length > 0 && (
-            <details className={styles.filterDetails} open>
-              <summary className={styles.filterSummary}>
-                Напруга <ChevronIcon />
+                CAS Latency <ChevronIcon />
               </summary>
               <div className={styles.filterContent}>
                 <div className={styles.pillGrid}>
-                  {availableVoltages.map((volt) => (
+                  {availableCas.map((cas) => (
                     <button
-                      key={volt}
+                      key={cas}
                       onClick={() =>
-                        toggleFilter(
-                          selectedVoltages,
-                          setSelectedVoltages,
-                          volt,
-                        )
+                        toggleFilter(selectedCas, setSelectedCas, cas)
                       }
-                      className={`${styles.pillButton} ${selectedVoltages.includes(volt) ? styles.active : ""}`}
+                      className={`${styles.pillButton} ${selectedCas.includes(cas) ? styles.active : ""}`}
                     >
-                      {volt} В
+                      CL{cas}
                     </button>
                   ))}
                 </div>
@@ -569,10 +538,11 @@ export default function Catalog() {
             </details>
           )}
 
+          {/* --- БЛОК ОПЦІЙНИХ ХАРАКТЕРИСТИК (Булеві / Чекбокси) --- */}
           {availableBoolFeatures.length > 0 && (
             <details className={styles.filterDetails} open>
               <summary className={styles.filterSummary}>
-                Особливості <ChevronIcon />
+                Додаткові характеристики <ChevronIcon />
               </summary>
               <div className={styles.filterContent}>
                 {availableBoolFeatures.map((feat) => (
@@ -589,12 +559,38 @@ export default function Catalog() {
                         )
                       }
                     />
-                    {featureTranslations[feat] || feat}
+                    {feat}
                   </label>
                 ))}
               </div>
             </details>
           )}
+
+          {/* --- ІНШІ ДИНАМІЧНІ ФІЛЬТРИ (Профілі, напруга, таймінги тощо) --- */}
+          {Object.entries(dynamicFeatureMap).map(([key, values]) => {
+            const selectedArr = selectedExtraFeatures[key] || [];
+
+            return (
+              <details key={key} className={styles.filterDetails} open>
+                <summary className={styles.filterSummary}>
+                  {key} <ChevronIcon />
+                </summary>
+                <div className={styles.filterContent}>
+                  <div className={styles.pillGrid}>
+                    {values.map((val) => (
+                      <button
+                        key={val}
+                        onClick={() => toggleExtraFeature(key, val)}
+                        className={`${styles.pillButton} ${selectedArr.includes(val) ? styles.active : ""}`}
+                      >
+                        {val}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </details>
+            );
+          })}
         </aside>
 
         <div className={styles.contentArea}>
@@ -607,13 +603,11 @@ export default function Catalog() {
               style={{
                 opacity: loading ? 0.5 : 1,
                 transition: "opacity 0.2s ease",
-                pointerEvents: loading ? "none" : "auto",
               }}
             >
               <div className={styles.gridContainer}>
                 {filteredModels.map((model) => (
                   <div key={model.ram_id} className={styles.card}>
-                    {/* Контейнер для зображення з фіксованою висотою та вирівнюванням */}
                     <div
                       style={{
                         width: "100%",
@@ -635,7 +629,7 @@ export default function Catalog() {
                           style={{
                             width: "100%",
                             height: "100%",
-                            objectFit: "contain", // Зберігає пропорції, не обрізає і не розтягує
+                            objectFit: "contain",
                           }}
                         />
                       ) : (
@@ -666,11 +660,28 @@ export default function Catalog() {
                           <strong>Таймінги:</strong> CL{model.cas_latency}
                         </li>
                       )}
-                      {model.extra_features?.has_rgb === true && (
-                        <li>
-                          <strong>Підсвічування:</strong> RGB
-                        </li>
-                      )}
+
+                      {/* Виведення до 3 додаткових характеристик з бази */}
+                      {model.extra_features &&
+                        Object.entries(model.extra_features)
+                          .filter(
+                            ([_, v]) =>
+                              v !== null &&
+                              v !== undefined &&
+                              v !== "" &&
+                              v !== false,
+                          )
+                          .slice(0, 3)
+                          .map(([k, v]) => (
+                            <li key={k}>
+                              <strong>{k}:</strong>{" "}
+                              {v === "Є" || v === true
+                                ? "Так"
+                                : Array.isArray(v)
+                                  ? v.join(", ")
+                                  : String(v)}
+                            </li>
+                          ))}
                     </ul>
                     <div className={styles.cardFooter}>
                       <Link

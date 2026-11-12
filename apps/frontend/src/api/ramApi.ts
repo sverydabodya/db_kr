@@ -49,11 +49,14 @@ export const ramApi = {
   },
 
   getManufacturers: async (): Promise<Manufacturer[]> => {
-    const response = await fetch(`${API_PREFIX}/manufacturers`);
-    if (!response.ok) {
-      throw new Error("Не вдалося завантажити список виробників");
+    const res = await fetch(`${API_PREFIX}/manufacturers`);
+
+    if (!res.ok) {
+      const text = await res.text();
+      console.error("Помилка від сервера:", text);
+      throw new Error(`Не вдалося завантажити ключі (статус ${res.status})`);
     }
-    return response.json();
+    return res.json();
   },
 
   getMemoryTypes: async (): Promise<MemoryType[]> => {
@@ -70,6 +73,13 @@ export const ramApi = {
       throw new Error("Не вдалося завантажити формфактори");
     }
     return response.json();
+  },
+
+  getFeatureKeys: async (): Promise<string[]> => {
+    const res = await fetch(`${API_PREFIX}/ram/keys`);
+
+    if (!res.ok) throw new Error("Не вдалося завантажити ключі");
+    return res.json();
   },
 
   // --- POST ЗАПИТИ (СТВОРЕННЯ ДАНИХ) ---
@@ -291,5 +301,62 @@ export const ramApi = {
       throw new Error(data.error || "Помилка при видаленні формфактора");
     }
     return { success: true, message: "Формфактор успішно видалено!" };
+  },
+  getFeatureDefinitions: async () => {
+    const res = await fetch(`${API_PREFIX}/features`); // Відповідає вашому роутеру (FeatureRouter.get("/"))
+    if (!res.ok)
+      throw new Error("Помилка завантаження довідника характеристик");
+    return res.json();
+  },
+
+  createFeatureDefinition: async (newFeature: any, token: string) => {
+    const response = await fetch(`${API_PREFIX}/features`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(newFeature),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Помилка при створенні характеристики");
+    }
+    return { success: true, message: "Характеристику успішно додано!", data };
+  },
+
+  updateFeatureDefinition: async (
+    id: number,
+    updatedFeature: any,
+    token: string,
+  ) => {
+    const response = await fetch(`${API_PREFIX}/features/${id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(updatedFeature),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Помилка при оновленні характеристики");
+    }
+    return { success: true, message: "Характеристику успішно оновлено!", data };
+  },
+
+  deleteFeatureDefinition: async (id: number, token: string) => {
+    const response = await fetch(`${API_PREFIX}/features/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || "Помилка при видаленні характеристики");
+    }
+    return { success: true, message: "Характеристику успішно видалено!" };
   },
 };

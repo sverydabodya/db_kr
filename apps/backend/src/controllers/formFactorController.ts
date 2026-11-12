@@ -1,13 +1,16 @@
 import { Request, Response } from "express";
 import { FormFactorRepository } from "../repositories/formFactorRepository";
 import { redisClient } from "../config/redis";
+import { ElasticService } from "../services/elasticService";
 
 export class FormFactorController {
   private formFactorRepo: FormFactorRepository;
+  private elasticService: ElasticService;
   private readonly CACHE_KEY = "formFactors_all";
 
   constructor(formFactorRepo: FormFactorRepository) {
     this.formFactorRepo = formFactorRepo;
+    this.elasticService = new ElasticService();
   }
 
   getAll = async (req: Request, res: Response) => {
@@ -65,6 +68,7 @@ export class FormFactorController {
       const newFormFactor = await this.formFactorRepo.create(data);
 
       await redisClient.del(this.CACHE_KEY);
+      await redisClient.flushDb();
 
       res.status(201).json(newFormFactor);
     } catch (error: any) {
@@ -95,7 +99,15 @@ export class FormFactorController {
 
       const updatedFormFactor = await this.formFactorRepo.update(id, data);
 
+      if (data.form_factor_name) {
+        await this.elasticService.updateFormFactorInElastic(
+          id,
+          updatedFormFactor!.form_factor_name,
+        );
+      }
+
       await redisClient.del(this.CACHE_KEY);
+      await redisClient.flushDb();
 
       res.status(200).json(updatedFormFactor);
     } catch (error: any) {
@@ -126,6 +138,7 @@ export class FormFactorController {
       const success = await this.formFactorRepo.delete(id);
 
       await redisClient.del(this.CACHE_KEY);
+      await redisClient.flushDb();
 
       res.status(200).json({ success });
     } catch (error: any) {

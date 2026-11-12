@@ -12,9 +12,7 @@ export default function Manufacturers() {
     const fetchManufacturers = async () => {
       try {
         setLoading(true);
-        // Викликаємо готовий метод з ramApi, який забирає чисті дані з таблиці виробників
         const data = await ramApi.getManufacturers();
-
         setManufacturers(data);
         setError(null);
       } catch (err: any) {
@@ -44,32 +42,15 @@ export default function Manufacturers() {
       <div className={styles.gridContainer}>
         {manufacturers.map((manufacturer) => (
           <div key={manufacturer.manufacturer_id} className={styles.card}>
-            
-            {/* Контейнер для логотипа з фіксованою висотою та вирівнюванням */}
-            <div style={{
-              width: "100%", 
-              height: "160px", 
-              marginBottom: "16px", 
-              backgroundColor: "#0f172a", 
-              borderRadius: "8px", 
-              display: "flex", 
-              alignItems: "center", 
-              justifyContent: "center", 
-              overflow: "hidden",
-              padding: "16px"
-            }}>
+            <div className={styles.logoContainer}>
               {manufacturer.logo_url ? (
                 <img
                   src={manufacturer.logo_url}
                   alt={`Логотип ${manufacturer.name}`}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "contain" // Зберігає пропорції логотипа
-                  }}
+                  className={styles.logoImage}
                 />
               ) : (
-                <span style={{ color: "#64748b", fontSize: "0.85rem", textAlign: "center" }}>
+                <span className={styles.logoPlaceholderText}>
                   {manufacturer.name} Logo
                 </span>
               )}

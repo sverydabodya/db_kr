@@ -1,28 +1,138 @@
 .adminContainer {
-  max-width: 1900px;
+  max-width: 1700px;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 24px;
+  font-family: inherit;
+  color: #f8fafc;
 }
 
 .pageTitle {
+  font-size: 1.75rem;
+  font-weight: 700;
   color: #f8fafc;
-  font-size: 2rem;
-  margin-top: 0;
-  margin-bottom: 24px;
+  margin: 0 0 24px 0;
 }
 
-.formCard {
+/* --- ТЕХНОЛОГІЧНІ ВКЛАДКИ --- */
+.tabsContainer {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid #334155;
+  padding-bottom: 12px;
+}
+
+.tabBtn {
+  padding: 10px 20px;
+  background-color: #1e293b;
+  color: #94a3b8;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.92rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tabBtn:hover {
+  background-color: #334155;
+  color: #f8fafc;
+}
+
+.tabBtn.active {
+  background-color: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+}
+
+/* --- СТАТУСИ ТА ПОВІДОМЛЕННЯ --- */
+.statusMessage {
+  padding: 14px 18px;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 0.95rem;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.statusSuccess {
+  background-color: rgba(22, 163, 74, 0.15);
+  color: #4ade80;
+  border: 1px solid rgba(22, 163, 74, 0.3);
+}
+
+.statusError {
+  background-color: rgba(220, 38, 38, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(220, 38, 38, 0.3);
+}
+
+/* --- МАКЕТ РОЗДІЛЕННЯ (SPLIT LAYOUT) --- */
+.splitLayout {
+  display: grid;
+  grid-template-columns: 1fr 1.25fr;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 1200px) {
+  .splitLayout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.formCard,
+.listCard {
   background-color: #1e293b;
   border: 1px solid #334155;
   border-radius: 12px;
-  padding: 32px;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+  padding: 28px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+  box-sizing: border-box;
 }
 
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #334155;
+  padding-bottom: 12px;
+}
+
+.cardHeader h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #f8fafc;
+  margin: 0;
+}
+
+/* --- ПОШУК ТА ФІЛЬТРАЦІЯ У СПИСКУ --- */
+.searchBox {
+  width: 100%;
+  padding: 10px 14px;
+  background-color: #0f172a;
+  border: 1px solid #475569;
+  border-radius: 8px;
+  color: #f8fafc;
+  font-size: 0.95rem;
+  margin-bottom: 16px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.searchBox:focus {
+  border-color: #38bdf8;
+}
+
+/* --- СІТКА ФОРМИ --- */
 .formGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  gap: 16px;
 }
 
 .fullWidth {
@@ -32,68 +142,137 @@
 .formGroup {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .label {
   font-weight: 500;
   color: #cbd5e1;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
 }
 
 .input,
 .select,
 .textarea {
-  padding: 12px 16px;
+  padding: 11px 14px;
   background-color: #0f172a;
   border: 1px solid #475569;
   border-radius: 8px;
   color: #f8fafc;
-  font-size: 1rem;
-  transition: border-color 0.2s;
+  font-size: 0.95rem;
   outline: none;
   font-family: inherit;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 
 .input:focus,
 .select:focus,
 .textarea:focus {
   border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
 }
 
 .textarea {
   resize: vertical;
-  min-height: 100px;
+  min-height: 90px;
 }
 
-.checkboxLabel {
+/* --- БЛОК ДИНАМІЧНИХ ХАРАКТЕРИСТИК --- */
+.featuresWrapper {
+  background-color: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.featuresHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.addFeatureBtn {
+  background-color: #0284c7;
+  color: #ffffff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.addFeatureBtn:hover {
+  background-color: #0369a1;
+}
+
+.featureRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.featureCheckboxLabel {
+  flex: 1;
   display: flex;
   align-items: center;
-  gap: 12px;
-  color: #f8fafc;
+  gap: 8px;
+  color: #38bdf8;
+  font-weight: 600;
+  font-size: 0.9rem;
   cursor: pointer;
-  margin-top: 10px;
+  user-select: none;
+  background: #1e293b;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid #475569;
 }
 
-.checkbox {
-  width: 20px;
-  height: 20px;
+.featureCheckbox {
+  width: 18px;
+  height: 18px;
   accent-color: #38bdf8;
   cursor: pointer;
 }
 
+.removeFeatureBtn {
+  background-color: #dc2626;
+  color: #ffffff;
+  border: none;
+  padding: 10px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.removeFeatureBtn:hover {
+  background-color: #b91c1c;
+}
+
+/* --- КНОПКИ ДІЙ --- */
+.buttonGroup {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
 .submitBtn {
-  margin-top: 32px;
-  padding: 14px 24px;
+  flex: 1;
+  padding: 12px 20px;
   background-color: #0284c7;
-  color: white;
+  color: #ffffff;
   border: none;
   border-radius: 8px;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.2s;
-  width: 100%;
 }
 
 .submitBtn:hover:not(:disabled) {
@@ -106,144 +285,112 @@
   cursor: not-allowed;
 }
 
-.statusMessage {
-  margin-top: 20px;
-  padding: 16px;
-  border-radius: 8px;
-  text-align: center;
-  font-weight: 500;
-}
-
-.statusSuccess {
-  background-color: rgba(22, 163, 74, 0.1);
-  color: #4ade80;
-  border: 1px solid rgba(22, 163, 74, 0.2);
-}
-
-/* --- Вкладки (Tabs) --- */
-.tabsContainer {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 24px;
-  overflow-x: auto;
-  padding-bottom: 4px;
-}
-
-.tabBtn {
-  padding: 10px 20px;
-  background-color: #1e293b;
-  color: #cbd5e1;
-  border: 1px solid #334155;
-  border-radius: 8px;
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.2s;
-}
-
-.tabBtn:hover {
-  background-color: #334155;
-  color: #f8fafc;
-}
-
-.tabBtn.active {
-  background-color: #0284c7;
-  color: white;
-  border-color: #0284c7;
-}
-
-.splitLayout {
-  display: grid;
-  /* Робимо пропорцію колонок більш гнучкою: форма трохи ширша, таблиця компактніша */
-  grid-template-columns: 1.1fr 1.2fr;
-  gap: 24px;
-  align-items: start;
-}
-
-.listCard {
-  background-color: #1e293b;
-  border: 1px solid #334155;
-  padding: 24px;
-  border-radius: 12px;
-  max-height: 650px;
-  overflow-y: auto;
-  /* Додаємо обов'язковий box-sizing, щоб padding не ламав ширину */
-  box-sizing: border-box;
-}
-
-.buttonGroup {
-  display: flex;
-  gap: 12px;
-  margin-top: 20px;
-}
-
 .cancelBtn {
+  padding: 12px 20px;
   background-color: #475569;
-  color: white;
+  color: #ffffff;
   border: none;
-  padding: 14px 20px;
   border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
   cursor: pointer;
+  transition: background-color 0.2s;
 }
 
-/* СТИЛІ ТАБЛИЦІ */
+.cancelBtn:hover {
+  background-color: #64748b;
+}
+
+/* --- ТАБЛИЦІ --- */
+.tableContainer {
+  max-height: 550px;
+  overflow-y: auto;
+  border-radius: 8px;
+  border: 1px solid #334155;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 10px;
-}
-
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 10px;
-  /* Забороняємо таблиці розштовхувати контейнер */
   table-layout: fixed;
+  background-color: #1e293b;
 }
 
 .table th,
 .table td {
-  padding: 10px 8px;
+  padding: 12px 14px;
   text-align: left;
   border-bottom: 1px solid #334155;
   color: #cbd5e1;
   font-size: 0.9rem;
-  /* Додаємо обрізання тексту трикраткою, якщо він занадто довгий */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .table th {
+  background-color: #0f172a;
   font-weight: 600;
   color: #f1f5f9;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
-/* Явно задаємо ширину колонки для дій, щоб кнопки завжди поміщалися */
+.table tr:hover td {
+  background-color: rgba(51, 65, 85, 0.4);
+}
+
 .table th:last-child,
 .table td:last-child {
-  width: 110px;
+  width: 120px;
   text-align: center;
   white-space: nowrap;
+}
+
+.actionButtons {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
 }
 
 .editBtn {
   background: #0284c7;
   color: white;
   border: none;
-  padding: 5px 8px;
-  border-radius: 4px;
-  margin-right: 4px;
+  padding: 6px 10px;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 0.85rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.editBtn:hover {
+  background: #0369a1;
 }
 
 .deleteBtn {
   background: #dc2626;
   color: white;
   border: none;
-  padding: 5px 8px;
-  border-radius: 4px;
+  padding: 6px 10px;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 0.85rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.deleteBtn:hover {
+  background: #b91c1c;
+}
+
+.previewImage {
+  width: 60px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 6px;
+  margin-top: 8px;
+  border: 1px solid #475569;
 }

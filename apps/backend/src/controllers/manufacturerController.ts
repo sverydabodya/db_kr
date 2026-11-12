@@ -1,13 +1,16 @@
 import { Request, Response } from "express";
 import { ManufacturerRepository } from "../repositories/manufacturerRepository";
 import { redisClient } from "../config/redis";
+import { ElasticService } from "../services/elasticService";
 
 export class ManufacturerController {
   private manufacturerRepo: ManufacturerRepository;
+  private elasticService: ElasticService;
   private readonly CACHE_KEY = "manufacturers_all";
 
   constructor(manufacturerRepo: ManufacturerRepository) {
     this.manufacturerRepo = manufacturerRepo;
+    this.elasticService = new ElasticService();
   }
 
   getAll = async (req: Request, res: Response) => {
@@ -65,6 +68,7 @@ export class ManufacturerController {
       const newManufacturer = await this.manufacturerRepo.create(data);
 
       await redisClient.del(this.CACHE_KEY);
+      await redisClient.flushDb();
 
       res.status(201).json(newManufacturer);
     } catch (error: any) {
@@ -95,7 +99,15 @@ export class ManufacturerController {
 
       const updatedManufacturer = await this.manufacturerRepo.update(id, data);
 
+      if (data.name) {
+        await this.elasticService.updateVendorInElastic(
+          id,
+          updatedManufacturer!.name,
+        );
+      }
+
       await redisClient.del(this.CACHE_KEY);
+      await redisClient.flushDb();
 
       res.status(200).json(updatedManufacturer);
     } catch (error: any) {
@@ -126,6 +138,7 @@ export class ManufacturerController {
       const success = await this.manufacturerRepo.delete(id);
 
       await redisClient.del(this.CACHE_KEY);
+      await redisClient.flushDb();
 
       res.status(200).json({ success });
     } catch (error: any) {

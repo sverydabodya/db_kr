@@ -13,13 +13,14 @@ export const pool = new Pool({
   idleTimeoutMillis: 30000,
 });
 
-export const checkDbConnection = async () => {
+export const connectPostgres = async () => {
   try {
     const client = await pool.connect();
-    console.log("✅ Підключено до бази даних PostgreSQL");
+    console.log("Підключено до бази даних PostgreSQL");
     client.release();
   } catch (error) {
-    console.error("❌ Помилка підключення до PostgreSQL:", error);
+    console.error("Помилка підключення до PostgreSQL:", error);
     process.exit(1);
   }
 };
+

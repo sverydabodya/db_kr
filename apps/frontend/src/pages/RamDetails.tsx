@@ -7,9 +7,10 @@ import styles from "./RamDetails.module.css";
 // Словник для красивого виведення ключів extra_features
 const featureLabels: Record<string, string> = {
   has_rgb: "RGB підсвічування",
+  rgb: "RGB підсвічування",
   ecc: "Підтримка ECC",
-  heatsink: "Охолодження (Радіатор)",
-  tested_voltage: "Тестова напруга",
+  heatsink: "Радіатор",
+  tested_voltage: "Напруга",
   profiles: "Профілі розгону",
 };
 
@@ -71,7 +72,10 @@ export default function RamDetails() {
               style={{
                 width: "100%",
                 borderRadius: "12px",
-                objectFit: "cover",
+                objectFit: "contain",
+                maxHeight: "400px",
+                backgroundColor: "#0f172a",
+                padding: "16px",
               }}
             />
           ) : (
@@ -114,22 +118,29 @@ export default function RamDetails() {
                 </tr>
               )}
 
-              {/* Динамічний вивід усіх додаткових параметрів з extra_features */}
+              {/* Динамічний вивід додаткових параметрів з виключенням false, null та порожніх значень */}
               {model.extra_features &&
-                Object.entries(model.extra_features).map(([key, value]) => {
-                  // Форматуємо значення для гарного виведення
-                  let displayVal = String(value);
-                  if (value === true) displayVal = "Так";
-                  if (value === false) displayVal = "Ні";
-                  if (Array.isArray(value)) displayVal = value.join(", ");
+                Object.entries(model.extra_features)
+                  .filter(
+                    ([_, value]) =>
+                      value !== false &&
+                      value !== "false" &&
+                      value !== null &&
+                      value !== undefined &&
+                      value !== "",
+                  )
+                  .map(([key, value]) => {
+                    let displayVal = String(value);
+                    if (value === true || value === "true") displayVal = "Так";
+                    if (Array.isArray(value)) displayVal = value.join(", ");
 
-                  return (
-                    <tr key={key}>
-                      <td>{featureLabels[key] || key}</td>
-                      <td>{displayVal}</td>
-                    </tr>
-                  );
-                })}
+                    return (
+                      <tr key={key}>
+                        <td>{featureLabels[key] || key}</td>
+                        <td>{displayVal}</td>
+                      </tr>
+                    );
+                  })}
             </tbody>
           </table>
 

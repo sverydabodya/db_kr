@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { ramApi } from "../api/ramApi";
 import { useAuth } from "../context/AuthContext";
 import type {
@@ -9,11 +9,19 @@ import type {
 } from "@ram-catalog/shared";
 import styles from "./AdminPanel.module.css";
 
-type TabType = "ram" | "manufacturer" | "type" | "formFactor";
+type TabType = "ram" | "manufacturer" | "type" | "formFactor" | "feature";
 
 interface ExtraFeaturePair {
   key: string;
-  value: string;
+  value: any;
+}
+
+export interface FeatureDefinition {
+  feature_id?: number;
+  feature_name: string;
+  display_type: "boolean" | "text" | "select" | "multiselect" | "number";
+  options?: string[];
+  is_required?: boolean;
 }
 
 export default function AdminPanel() {
@@ -29,31 +37,26 @@ export default function AdminPanel() {
   const [manufacturers, setManufacturers] = useState<Manufacturer[]>([]);
   const [memoryTypes, setMemoryTypes] = useState<MemoryType[]>([]);
   const [formFactors, setFormFactors] = useState<FormFactor[]>([]);
+  const [featureDefs, setFeatureDefs] = useState<FeatureDefinition[]>([]);
 
+  // Пошуковий рядок для фільтрації списків
+  const [searchQuery, setSearchQuery] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
-
-  const availableFeatureKeys = useMemo(() => {
-    const keysSet = new Set<string>();
-    models.forEach((m) => {
-      if (m.extra_features) {
-        Object.keys(m.extra_features).forEach((k) => keysSet.add(k));
-      }
-    });
-    return Array.from(keysSet).sort();
-  }, [models]);
 
   const loadData = async () => {
     try {
-      const [modRes, manRes, typeRes, formRes] = await Promise.all([
+      const [modRes, manRes, typeRes, formRes, defsRes] = await Promise.all([
         ramApi.getModels(),
         ramApi.getManufacturers(),
         ramApi.getMemoryTypes(),
         ramApi.getFormFactors(),
+        ramApi.getFeatureDefinitions(), // Оновлений запит довідника
       ]);
       setModels(modRes);
       setManufacturers(manRes);
       setMemoryTypes(typeRes);
       setFormFactors(formRes);
+      setFeatureDefs(defsRes);
     } catch (err) {
       console.error("Помилка завантаження даних адмін-панелі", err);
     }
@@ -91,11 +94,17 @@ export default function AdminPanel() {
     image_url: "",
   };
   const initialForm = { form_factor_name: "", description: "", image_url: "" };
+  const initialFeatureDef = {
+    feature_name: "",
+    display_type: "text",
+    options: "",
+  };
 
   const [ramData, setRamData] = useState(initialRam);
   const [manData, setManData] = useState(initialMan);
   const [typeData, setTypeData] = useState(initialType);
   const [formData, setFormFactorData] = useState(initialForm);
+  const [featureDefData, setFeatureDefData] = useState(initialFeatureDef);
 
   const resetForm = () => {
     setEditingId(null);
@@ -103,9 +112,20 @@ export default function AdminPanel() {
     setManData(initialMan);
     setTypeData(initialType);
     setFormFactorData(initialForm);
+    setFeatureDefData(initialFeatureDef);
   };
 
-  // --- УПРАВЛІННЯ ДИНАМІЧНИМИ EXTRA_FEATURES ---
+  // Перевірка на булевий тип зі старого формату даних
+  const isFeaturePresent = (val: any) => {
+    if (typeof val === "boolean") return val;
+    if (typeof val === "string") {
+      const lower = val.trim().toLowerCase();
+      return lower === "є" || lower === "true" || lower === "yes";
+    }
+    return false;
+  };
+
+  // --- УПРАВЛІННЯ ДИНАМІЧНИМИ ХАРАКТЕРИСТИКАМИ (ОЗП) ---
   const handleAddFeature = () => {
     setRamData({
       ...ramData,
@@ -116,10 +136,55 @@ export default function AdminPanel() {
   const handleFeatureChange = (
     index: number,
     field: "key" | "value",
-    val: string,
+    val: any,
   ) => {
     const updated = [...ramData.extraFeaturesList];
-    updated[index][field] = val;
+
+    if (field === "key") {
+      updated[index].key = val;
+      const def = featureDefs.find((d) => d.feature_name === val);
+      if (def?.display_type === "boolean") {
+        updated[index].value = true;
+      } else if (def?.display_type === "select" && def.options?.length) {
+        updated[index].value = def.options[0];
+      } else if (def?.display_type === "multiselect") {
+        updated[index].value = []; // Ініціалізуємо порожнім масивом
+      } else {
+        updated[index].value = "";
+      }
+    } else {
+      updated[index].value = val;
+    }
+
+    setRamData({ ...ramData, extraFeaturesList: updated });
+  };
+
+  // Спеціальний обробник для чекбоксів всередині multiselect
+  const handleMultiselectChange = (
+    index: number,
+    option: string,
+    isChecked: boolean,
+  ) => {
+    const updated = [...ramData.extraFeaturesList];
+    let currentValues = updated[index].value;
+
+    if (!Array.isArray(currentValues)) {
+      currentValues = currentValues
+        ? typeof currentValues === "string"
+          ? currentValues.split(",").map((s: string) => s.trim())
+          : [String(currentValues)]
+        : [];
+    }
+
+    if (isChecked) {
+      if (!currentValues.includes(option)) {
+        currentValues.push(option);
+      }
+    } else {
+      currentValues = currentValues.filter((v: string) => v !== option);
+    }
+
+    updated[index].value = currentValues;
     setRamData({ ...ramData, extraFeaturesList: updated });
   };
 
@@ -128,65 +193,85 @@ export default function AdminPanel() {
     setRamData({ ...ramData, extraFeaturesList: updated });
   };
 
-  // --- ОБРОБНИКИ ЗМІН ---
+  // --- ОБРОБНИКИ ПОДІЙ ---
   const handleRamChange = (e: any) =>
-    setRamData({
-      ...ramData,
-      [e.target.name]: e.target.value,
-    });
+    setRamData({ ...ramData, [e.target.name]: e.target.value });
   const handleManChange = (e: any) =>
     setManData({ ...manData, [e.target.name]: e.target.value });
   const handleTypeChange = (e: any) =>
     setTypeData({ ...typeData, [e.target.name]: e.target.value });
   const handleFormFactorChange = (e: any) =>
     setFormFactorData({ ...formData, [e.target.name]: e.target.value });
+  const handleFeatureDefChange = (e: any) =>
+    setFeatureDefData({ ...featureDefData, [e.target.name]: e.target.value });
 
-  // --- УНІВЕРСАЛЬНЕ ЗАВАНТАЖЕННЯ ФАЙЛІВ ---
-  const createFileUploadHandler = (
-    setState: React.Dispatch<React.SetStateAction<any>>,
-    fieldName: string = "image_url"
-  ) => async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !token) return;
+  // --- ЗАВАНТАЖЕННЯ ФАЙЛІВ ---
+  const createFileUploadHandler =
+    (
+      setState: React.Dispatch<React.SetStateAction<any>>,
+      fieldName: string = "image_url",
+    ) =>
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file || !token) return;
 
-    const uploadFormData = new FormData();
-    uploadFormData.append("image", file);
+      const uploadFormData = new FormData();
+      uploadFormData.append("image", file);
 
-    try {
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: uploadFormData,
-      });
+      try {
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: uploadFormData,
+        });
 
-      const data = await response.json();
-      if (!response.ok)
-        throw new Error(data.error || "Помилка завантаження фото");
+        const data = await response.json();
+        if (!response.ok)
+          throw new Error(data.error || "Помилка завантаження фото");
 
-      setState((prev: any) => ({ ...prev, [fieldName]: data.url }));
-    } catch (err: any) {
-      alert(err.message);
-    }
-  };
+        setState((prev: any) => ({ ...prev, [fieldName]: data.url }));
+      } catch (err: any) {
+        alert(err.message);
+      }
+    };
 
-  // --- SUBMIT ФОРМ ---
+  // --- ВІДПРАВКА ФОРМ ---
   const handleRamSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token) return setStatus({ type: "error", message: "Немає доступу" });
+    if (!token)
+      return setStatus({ type: "error", message: "Необхідна авторизація" });
     setIsLoading(true);
     setStatus(null);
+
     try {
       const extra_features_obj: Record<string, any> = {};
-      ramData.extraFeaturesList.forEach((item) => {
-        if (item.key.trim() !== "") {
-          let val: any = item.value.trim();
-          if (val === "true") val = true;
-          else if (val === "false") val = false;
-          else if (!isNaN(Number(val)) && val !== "") val = Number(val);
 
-          extra_features_obj[item.key.trim()] = val;
+      ramData.extraFeaturesList.forEach((item) => {
+        const trimmedKey = item.key.trim();
+        if (trimmedKey !== "") {
+          const def = featureDefs.find((d) => d.feature_name === trimmedKey);
+          const displayType = def ? def.display_type : "text";
+          let val = item.value;
+
+          if (displayType === "boolean") {
+            val = Boolean(val);
+            if (val === true) val = "Є";
+          } else if (displayType === "multiselect") {
+            if (typeof val === "string") {
+              val = val
+                .split(",")
+                .map((v: string) => v.trim())
+                .filter(Boolean);
+            } else if (!Array.isArray(val)) {
+              val = [];
+            }
+          } else if (displayType === "number") {
+            val = Number(val);
+          } else {
+            val = typeof val === "string" ? val.trim() : val;
+          }
+
+          extra_features_obj[trimmedKey] = val;
         }
       });
 
@@ -207,10 +292,13 @@ export default function AdminPanel() {
 
       if (editingId) {
         await ramApi.updateModel(editingId, payload, token);
-        setStatus({ type: "success", message: "ОЗП успішно оновлено!" });
+        setStatus({ type: "success", message: "Модель успішно оновлено!" });
       } else {
         const res = await ramApi.createModel(payload, token);
-        setStatus({ type: "success", message: res.message });
+        setStatus({
+          type: "success",
+          message: res.message || "Модель успішно створено!",
+        });
       }
       await loadData();
       resetForm();
@@ -303,19 +391,50 @@ export default function AdminPanel() {
     }
   };
 
+  const handleFeatureDefSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+    setIsLoading(true);
+    setStatus(null);
+    try {
+      const payload: any = {
+        feature_name: featureDefData.feature_name,
+        display_type: featureDefData.display_type,
+      };
+
+      if (["select", "multiselect"].includes(featureDefData.display_type)) {
+        payload.options = featureDefData.options
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+      }
+
+      if (editingId)
+        await ramApi.updateFeatureDefinition(editingId, payload, token);
+      else await ramApi.createFeatureDefinition(payload, token);
+
+      setStatus({ type: "success", message: "Характеристику збережено" });
+      await loadData();
+      resetForm();
+    } catch (err: any) {
+      setStatus({ type: "error", message: err.message });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleDelete = async (id: number, type: TabType) => {
-    if (!window.confirm("Ви впевнені, що хочете видалити цей запис?")) return;
+    if (!window.confirm("Ви дійсно хочете видалити цей запис?")) return;
     if (!token) return;
     try {
-      if (type === "ram") {
-        await ramApi.deleteModel(id, token);
-      } else if (type === "manufacturer") {
+      if (type === "ram") await ramApi.deleteModel(id, token);
+      else if (type === "manufacturer")
         await ramApi.deleteManufacturer(id, token);
-      } else if (type === "type") {
-        await ramApi.deleteMemoryType(id, token);
-      } else if (type === "formFactor") {
-        await ramApi.deleteFormFactor(id, token);
-      }
+      else if (type === "type") await ramApi.deleteMemoryType(id, token);
+      else if (type === "formFactor") await ramApi.deleteFormFactor(id, token);
+      else if (type === "feature")
+        await ramApi.deleteFeatureDefinition(id, token);
+
       setStatus({ type: "success", message: "Запис успішно видалено!" });
       await loadData();
     } catch (err: any) {
@@ -323,45 +442,57 @@ export default function AdminPanel() {
     }
   };
 
+  // Фільтрація моделей за пошуковим запитом
+  const filteredModels = models.filter((m) =>
+    `${m.model_name} ${m.manufacturer_name}`
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase()),
+  );
+
   return (
     <div className={styles.adminContainer}>
-      <h2 className={styles.pageTitle}>Панель адміністратора</h2>
+      <h2 className={styles.pageTitle}>Панель адміністратора каталогу ОЗП</h2>
 
       <div className={styles.tabsContainer}>
-        {(["ram", "manufacturer", "type", "formFactor"] as TabType[]).map(
-          (tab) => (
-            <button
-              key={tab}
-              className={`${styles.tabBtn} ${activeTab === tab ? styles.active : ""}`}
-              onClick={() => {
-                setActiveTab(tab);
-                setStatus(null);
-                resetForm();
-              }}
-            >
-              {tab === "ram" && "ОЗП"}
-              {tab === "manufacturer" && "Виробники"}
-              {tab === "type" && "Стандарти"}
-              {tab === "formFactor" && "Формфактори"}
-            </button>
-          ),
-        )}
+        {(
+          ["ram", "manufacturer", "type", "formFactor", "feature"] as TabType[]
+        ).map((tab) => (
+          <button
+            key={tab}
+            className={`${styles.tabBtn} ${activeTab === tab ? styles.active : ""}`}
+            onClick={() => {
+              setActiveTab(tab);
+              setStatus(null);
+              resetForm();
+              setSearchQuery("");
+            }}
+          >
+            {tab === "ram" && "Моделі ОЗП"}
+            {tab === "manufacturer" && "Виробники"}
+            {tab === "type" && "Стандарти пам'яті"}
+            {tab === "formFactor" && "Формфактори"}
+            {tab === "feature" && "Довідник характеристик"}
+          </button>
+        ))}
       </div>
 
       {status && (
         <div
           className={`${styles.statusMessage} ${status.type === "success" ? styles.statusSuccess : styles.statusError}`}
-          style={{ marginBottom: "20px" }}
         >
           {status.message}
         </div>
       )}
 
-      {/* --- Вкладка ОЗП --- */}
+      {/* --- ВКЛАДКА МОДЕЛЕЙ ОЗП --- */}
       {activeTab === "ram" && (
         <div className={styles.splitLayout}>
           <div className={styles.formCard}>
-            <h3>{editingId ? "Редагувати ОЗП" : "Додати нову ОЗП"}</h3>
+            <div className={styles.cardHeader}>
+              <h3>
+                {editingId ? "Редагування моделі ОЗП" : "Додавання нової ОЗП"}
+              </h3>
+            </div>
             <form onSubmit={handleRamSubmit}>
               <div className={styles.formGrid}>
                 <div className={styles.formGroup}>
@@ -392,6 +523,7 @@ export default function AdminPanel() {
                     value={ramData.model_name}
                     onChange={handleRamChange}
                     required
+                    placeholder="напр. Fury Beast RGB"
                     className={styles.input}
                   />
                 </div>
@@ -445,6 +577,7 @@ export default function AdminPanel() {
                     onChange={handleRamChange}
                     required
                     min="1"
+                    placeholder="16"
                     className={styles.input}
                   />
                 </div>
@@ -458,6 +591,7 @@ export default function AdminPanel() {
                     onChange={handleRamChange}
                     required
                     min="800"
+                    placeholder="3200"
                     className={styles.input}
                   />
                 </div>
@@ -470,6 +604,7 @@ export default function AdminPanel() {
                     value={ramData.cas_latency}
                     onChange={handleRamChange}
                     min="1"
+                    placeholder="16"
                     className={styles.input}
                   />
                 </div>
@@ -486,98 +621,179 @@ export default function AdminPanel() {
                     <img
                       src={ramData.image_url}
                       alt="Preview"
-                      style={{
-                        width: "100px",
-                        marginTop: "10px",
-                        borderRadius: "6px",
-                      }}
+                      className={styles.previewImage}
                     />
                   )}
                 </div>
 
-                {/* --- ДИНАМІЧНІ EXTRA_FEATURES --- */}
+                {/* ДИНАМІЧНІ ХАРАКТЕРИСТИКИ */}
                 <div className={`${styles.formGroup} ${styles.fullWidth}`}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: "8px",
-                    }}
-                  >
-                    <label className={styles.label} style={{ margin: 0 }}>
-                      Додаткові характеристики
-                    </label>
-                    <button
-                      type="button"
-                      onClick={handleAddFeature}
-                      style={{
-                        background: "#0284c7",
-                        color: "white",
-                        border: "none",
-                        padding: "4px 10px",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                        fontSize: "0.85rem",
-                      }}
-                    >
-                      + Додати поле
-                    </button>
-                  </div>
-
-                  {ramData.extraFeaturesList.map((item, index) => (
-                    <div
-                      key={index}
-                      style={{
-                        display: "flex",
-                        gap: "10px",
-                        marginBottom: "10px",
-                      }}
-                    >
-                      <input
-                        type="text"
-                        placeholder="Ключ (напр. has_rgb, heatsink)"
-                        value={item.key}
-                        onChange={(e) =>
-                          handleFeatureChange(index, "key", e.target.value)
-                        }
-                        className={styles.input}
-                        style={{ flex: 1 }}
-                        list="featureKeysList"
-                      />
-
-                      <datalist id="featureKeysList">
-                        {availableFeatureKeys.map((keyName) => (
-                          <option key={keyName} value={keyName} />
-                        ))}
-                      </datalist>
-
-                      <input
-                        type="text"
-                        placeholder="Значення (напр. true, алюмінієвий)"
-                        value={item.value}
-                        onChange={(e) =>
-                          handleFeatureChange(index, "value", e.target.value)
-                        }
-                        className={styles.input}
-                        style={{ flex: 1 }}
-                      />
+                  <div className={styles.featuresWrapper}>
+                    <div className={styles.featuresHeader}>
+                      <label className={styles.label} style={{ margin: 0 }}>
+                        Додаткові характеристики
+                      </label>
                       <button
                         type="button"
-                        onClick={() => handleRemoveFeature(index)}
-                        style={{
-                          background: "#dc2626",
-                          color: "white",
-                          border: "none",
-                          padding: "0 12px",
-                          borderRadius: "8px",
-                          cursor: "pointer",
-                        }}
+                        onClick={handleAddFeature}
+                        className={styles.addFeatureBtn}
                       >
-                        ✕
+                        + Додати параметр
                       </button>
                     </div>
-                  ))}
+
+                    {ramData.extraFeaturesList.map((item, index) => {
+                      const def = featureDefs.find(
+                        (d) => d.feature_name === item.key,
+                      );
+                      const displayType = def ? def.display_type : "text";
+
+                      return (
+                        <div key={index} className={styles.featureRow}>
+                          <select
+                            value={item.key}
+                            onChange={(e) =>
+                              handleFeatureChange(index, "key", e.target.value)
+                            }
+                            className={styles.select}
+                            style={{ flex: 1 }}
+                          >
+                            <option value="" disabled>
+                              Оберіть параметр
+                            </option>
+                            {featureDefs.map((d) => (
+                              <option
+                                key={d.feature_name}
+                                value={d.feature_name}
+                              >
+                                {d.feature_name}
+                              </option>
+                            ))}
+                          </select>
+
+                          {displayType === "boolean" ? (
+                            <label
+                              className={styles.featureCheckboxLabel}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px",
+                                flex: 1,
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={Boolean(item.value)}
+                                onChange={(e) =>
+                                  handleFeatureChange(
+                                    index,
+                                    "value",
+                                    e.target.checked,
+                                  )
+                                }
+                                className={styles.featureCheckbox}
+                              />
+                              Наявність (Так/Є)
+                            </label>
+                          ) : displayType === "select" && def?.options ? (
+                            <select
+                              value={item.value}
+                              onChange={(e) =>
+                                handleFeatureChange(
+                                  index,
+                                  "value",
+                                  e.target.value,
+                                )
+                              }
+                              className={styles.select}
+                              style={{ flex: 1 }}
+                            >
+                              <option value="" disabled>
+                                Оберіть...
+                              </option>
+                              {def.options.map((opt) => (
+                                <option key={opt} value={opt}>
+                                  {opt}
+                                </option>
+                              ))}
+                            </select>
+                          ) : displayType === "multiselect" && def?.options ? (
+                            <div
+                              style={{
+                                flex: 1,
+                                display: "flex",
+                                flexWrap: "wrap",
+                                gap: "8px",
+                                padding: "8px",
+                                border: "1px solid #334155",
+                                borderRadius: "8px",
+                              }}
+                            >
+                              {def.options.map((opt) => {
+                                const isSelected = Array.isArray(item.value)
+                                  ? item.value.includes(opt)
+                                  : typeof item.value === "string" &&
+                                    item.value.includes(opt);
+
+                                return (
+                                  <label
+                                    key={opt}
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: "4px",
+                                      fontSize: "0.9rem",
+                                      color: "#f8fafc",
+                                    }}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      onChange={(e) =>
+                                        handleMultiselectChange(
+                                          index,
+                                          opt,
+                                          e.target.checked,
+                                        )
+                                      }
+                                    />
+                                    {opt}
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <input
+                              type="text"
+                              placeholder="Значення"
+                              value={
+                                Array.isArray(item.value)
+                                  ? item.value.join(", ")
+                                  : item.value
+                              }
+                              onChange={(e) =>
+                                handleFeatureChange(
+                                  index,
+                                  "value",
+                                  e.target.value,
+                                )
+                              }
+                              className={styles.input}
+                              style={{ flex: 1 }}
+                            />
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveFeature(index)}
+                            className={styles.removeFeatureBtn}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div className={`${styles.formGroup} ${styles.fullWidth}`}>
@@ -587,6 +803,7 @@ export default function AdminPanel() {
                     value={ramData.description}
                     onChange={handleRamChange}
                     className={styles.textarea}
+                    placeholder="Технічні особливості..."
                   />
                 </div>
               </div>
@@ -601,6 +818,179 @@ export default function AdminPanel() {
                     ? "Збереження..."
                     : editingId
                       ? "Зберегти зміни"
+                      : "Створити модель"}
+                </button>
+                {editingId && (
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className={styles.cancelBtn}
+                  >
+                    Скасувати
+                  </button>
+                )}
+              </div>
+            </form>
+          </div>
+
+          <div className={styles.listCard}>
+            <div className={styles.cardHeader}>
+              <h3>Список моделей ({filteredModels.length})</h3>
+            </div>
+            <input
+              type="text"
+              placeholder="Шукати за брендом або моделлю..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className={styles.searchBox}
+            />
+            <div className={styles.tableContainer}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Бренд</th>
+                    <th>Модель</th>
+                    <th>Обсяг</th>
+                    <th>Дії</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredModels.map((m) => (
+                    <tr key={m.ram_id}>
+                      <td>{m.manufacturer_name}</td>
+                      <td>{m.model_name}</td>
+                      <td>{m.capacity_gb} ГБ</td>
+                      <td>
+                        <div className={styles.actionButtons}>
+                          <button
+                            onClick={() => {
+                              setEditingId(m.ram_id);
+                              const featuresList: ExtraFeaturePair[] = [];
+                              if (m.extra_features) {
+                                Object.entries(m.extra_features).forEach(
+                                  ([k, v]) => {
+                                    const displayValue = Array.isArray(v)
+                                      ? v
+                                      : isFeaturePresent(v)
+                                        ? true
+                                        : v;
+                                    featuresList.push({
+                                      key: k,
+                                      value: displayValue,
+                                    });
+                                  },
+                                );
+                              }
+                              setRamData({
+                                manufacturer_id: String(m.manufacturer_id),
+                                type_id: String(m.type_id),
+                                form_factor_id: String(m.form_factor_id),
+                                model_name: m.model_name,
+                                capacity_gb: String(m.capacity_gb),
+                                frequency_mhz: String(m.frequency_mhz),
+                                cas_latency: m.cas_latency
+                                  ? String(m.cas_latency)
+                                  : "",
+                                description: m.description || "",
+                                image_url: m.image_url || "",
+                                extraFeaturesList: featuresList,
+                              });
+                            }}
+                            className={styles.editBtn}
+                          >
+                            Ред.
+                          </button>
+                          <button
+                            onClick={() => handleDelete(m.ram_id, "ram")}
+                            className={styles.deleteBtn}
+                          >
+                            Вид.
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- ВКЛАДКА ВИРОБНИКІВ --- */}
+      {activeTab === "manufacturer" && (
+        <div className={styles.splitLayout}>
+          <div className={styles.formCard}>
+            <div className={styles.cardHeader}>
+              <h3>{editingId ? "Редагувати виробника" : "Додати виробника"}</h3>
+            </div>
+            <form onSubmit={handleManSubmit}>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Назва *</label>
+                <input
+                  type="text"
+                  name="name"
+                  value={manData.name}
+                  onChange={handleManChange}
+                  required
+                  className={styles.input}
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Країна</label>
+                <input
+                  type="text"
+                  name="country"
+                  value={manData.country}
+                  onChange={handleManChange}
+                  className={styles.input}
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Сайт (URL)</label>
+                <input
+                  type="url"
+                  name="website"
+                  value={manData.website}
+                  onChange={handleManChange}
+                  className={styles.input}
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Логотип</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={createFileUploadHandler(setManData, "logo_url")}
+                  className={styles.input}
+                />
+                {manData.logo_url && (
+                  <img
+                    src={manData.logo_url}
+                    alt="Preview"
+                    className={styles.previewImage}
+                  />
+                )}
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Опис компанії</label>
+                <textarea
+                  name="description"
+                  value={manData.description}
+                  onChange={handleManChange}
+                  className={styles.textarea}
+                />
+              </div>
+              <div className={styles.buttonGroup}>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className={styles.submitBtn}
+                >
+                  {isLoading
+                    ? "Збереження..."
+                    : editingId
+                      ? "Зберегти"
                       : "Створити"}
                 </button>
                 {editingId && (
@@ -617,139 +1007,387 @@ export default function AdminPanel() {
           </div>
 
           <div className={styles.listCard}>
-            <h3>Список моделей</h3>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Бренд</th>
-                  <th>Модель</th>
-                  <th>Обсяг</th>
-                  <th>Дії</th>
-                </tr>
-              </thead>
-              <tbody>
-                {models.map((m) => (
-                  <tr key={m.ram_id}>
-                    <td>{m.manufacturer_name}</td>
-                    <td>{m.model_name}</td>
-                    <td>{m.capacity_gb} ГБ</td>
-                    <td>
-                      <button
-                        onClick={() => {
-                          setEditingId(m.ram_id);
-                          const featuresList: ExtraFeaturePair = [];
-                          if (m.extra_features) {
-                            Object.entries(m.extra_features).forEach(
-                              ([k, v]) => {
-                                featuresList.push({ key: k, value: String(v) });
-                              },
-                            );
-                          }
-
-                          setRamData({
-                            manufacturer_id: String(m.manufacturer_id),
-                            type_id: String(m.type_id),
-                            form_factor_id: String(m.form_factor_id),
-                            model_name: m.model_name,
-                            capacity_gb: String(m.capacity_gb),
-                            frequency_mhz: String(m.frequency_mhz),
-                            cas_latency: m.cas_latency
-                              ? String(m.cas_latency)
-                              : "",
-                            description: m.description || "",
-                            image_url: m.image_url || "",
-                            extraFeaturesList: featuresList,
-                          });
-                        }}
-                        className={styles.editBtn}
-                      >
-                        Ред.
-                      </button>
-                      <button
-                        onClick={() => handleDelete(m.ram_id, "ram")}
-                        className={styles.deleteBtn}
-                      >
-                        Вид.
-                      </button>
-                    </td>
+            <div className={styles.cardHeader}>
+              <h3>Список виробників</h3>
+            </div>
+            <div className={styles.tableContainer}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Назва</th>
+                    <th>Країна</th>
+                    <th>Дії</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {manufacturers.map((m) => (
+                    <tr key={m.manufacturer_id}>
+                      <td>{m.name}</td>
+                      <td>{m.country || "-"}</td>
+                      <td>
+                        <div className={styles.actionButtons}>
+                          <button
+                            onClick={() => {
+                              setEditingId(m.manufacturer_id);
+                              setManData({
+                                name: m.name,
+                                country: m.country || "",
+                                website: m.website || "",
+                                description: m.description || "",
+                                logo_url: m.logo_url || "",
+                              });
+                            }}
+                            className={styles.editBtn}
+                          >
+                            Ред.
+                          </button>
+                          <button
+                            onClick={() =>
+                              handleDelete(m.manufacturer_id, "manufacturer")
+                            }
+                            className={styles.deleteBtn}
+                          >
+                            Вид.
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
 
-      {/* --- Вкладка Виробники --- */}
-      {activeTab === "manufacturer" && (
+      {/* --- ВКЛАДКА СТАНДАРТІВ ПАМ'ЯТІ --- */}
+      {activeTab === "type" && (
         <div className={styles.splitLayout}>
           <div className={styles.formCard}>
-            <h3>{editingId ? "Редагувати виробника" : "Додати виробника"}</h3>
-            <form onSubmit={handleManSubmit}>
+            <div className={styles.cardHeader}>
+              <h3>
+                {editingId ? "Редагувати стандарт" : "Додати стандарт пам'яті"}
+              </h3>
+            </div>
+            <form onSubmit={handleTypeSubmit}>
               <div className={styles.formGroup}>
-                <label className={styles.label}>Назва *</label>
+                <label className={styles.label}>
+                  Назва стандарту (напр. DDR5) *
+                </label>
                 <input
                   type="text"
-                  name="name"
-                  value={manData.name}
-                  onChange={handleManChange}
+                  name="type_name"
+                  value={typeData.type_name}
+                  onChange={handleTypeChange}
+                  required
+                  className={styles.input}
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Базова напруга (Вольт) *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  name="default_voltage"
+                  value={typeData.default_voltage}
+                  onChange={handleTypeChange}
+                  required
+                  min="0"
+                  className={styles.input}
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Зображення</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={createFileUploadHandler(setTypeData, "image_url")}
+                  className={styles.input}
+                />
+                {typeData.image_url && (
+                  <img
+                    src={typeData.image_url}
+                    alt="Preview"
+                    className={styles.previewImage}
+                  />
+                )}
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Опис стандарту</label>
+                <textarea
+                  name="description"
+                  value={typeData.description}
+                  onChange={handleTypeChange}
+                  className={styles.textarea}
+                />
+              </div>
+              <div className={styles.buttonGroup}>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className={styles.submitBtn}
+                >
+                  {isLoading
+                    ? "Збереження..."
+                    : editingId
+                      ? "Зберегти"
+                      : "Створити"}
+                </button>
+                {editingId && (
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className={styles.cancelBtn}
+                  >
+                    Скасувати
+                  </button>
+                )}
+              </div>
+            </form>
+          </div>
+
+          <div className={styles.listCard}>
+            <div className={styles.cardHeader}>
+              <h3>Список стандартів</h3>
+            </div>
+            <div className={styles.tableContainer}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Стандарт</th>
+                    <th>Напруга</th>
+                    <th>Дії</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {memoryTypes.map((t) => (
+                    <tr key={t.type_id}>
+                      <td>{t.type_name}</td>
+                      <td>{t.default_voltage} В</td>
+                      <td>
+                        <div className={styles.actionButtons}>
+                          <button
+                            onClick={() => {
+                              setEditingId(t.type_id);
+                              setTypeData({
+                                type_name: t.type_name,
+                                default_voltage: String(t.default_voltage),
+                                description: t.description || "",
+                                image_url: t.image_url || "",
+                              });
+                            }}
+                            className={styles.editBtn}
+                          >
+                            Ред.
+                          </button>
+                          <button
+                            onClick={() => handleDelete(t.type_id, "type")}
+                            className={styles.deleteBtn}
+                          >
+                            Вид.
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- ВКЛАДКА ФОРМФАКТОРІВ --- */}
+      {activeTab === "formFactor" && (
+        <div className={styles.splitLayout}>
+          <div className={styles.formCard}>
+            <div className={styles.cardHeader}>
+              <h3>
+                {editingId ? "Редагувати формфактор" : "Додати формфактор"}
+              </h3>
+            </div>
+            <form onSubmit={handleFormFactorSubmit}>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>
+                  Назва формфактора (напр. DIMM) *
+                </label>
+                <input
+                  type="text"
+                  name="form_factor_name"
+                  value={formData.form_factor_name}
+                  onChange={handleFormFactorChange}
+                  required
+                  className={styles.input}
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Схема</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={createFileUploadHandler(
+                    setFormFactorData,
+                    "image_url",
+                  )}
+                  className={styles.input}
+                />
+                {formData.image_url && (
+                  <img
+                    src={formData.image_url}
+                    alt="Preview"
+                    className={styles.previewImage}
+                  />
+                )}
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Опис формфактора</label>
+                <textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={handleFormFactorChange}
+                  className={styles.textarea}
+                />
+              </div>
+              <div className={styles.buttonGroup}>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className={styles.submitBtn}
+                >
+                  {isLoading
+                    ? "Збереження..."
+                    : editingId
+                      ? "Зберегти"
+                      : "Створити"}
+                </button>
+                {editingId && (
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className={styles.cancelBtn}
+                  >
+                    Скасувати
+                  </button>
+                )}
+              </div>
+            </form>
+          </div>
+
+          <div className={styles.listCard}>
+            <div className={styles.cardHeader}>
+              <h3>Список формфакторів</h3>
+            </div>
+            <div className={styles.tableContainer}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Формфактор</th>
+                    <th>Дії</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {formFactors.map((f) => (
+                    <tr key={f.form_factor_id}>
+                      <td>{f.form_factor_name}</td>
+                      <td>
+                        <div className={styles.actionButtons}>
+                          <button
+                            onClick={() => {
+                              setEditingId(f.form_factor_id);
+                              setFormFactorData({
+                                form_factor_name: f.form_factor_name,
+                                description: f.description || "",
+                                image_url: f.image_url || "",
+                              });
+                            }}
+                            className={styles.editBtn}
+                          >
+                            Ред.
+                          </button>
+                          <button
+                            onClick={() =>
+                              handleDelete(f.form_factor_id, "formFactor")
+                            }
+                            className={styles.deleteBtn}
+                          >
+                            Вид.
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- ВКЛАДКА ДОВІДНИКА ХАРАКТЕРИСТИК (НОВА) --- */}
+      {activeTab === "feature" && (
+        <div className={styles.splitLayout}>
+          <div className={styles.formCard}>
+            <div className={styles.cardHeader}>
+              <h3>
+                {editingId
+                  ? "Редагувати характеристику"
+                  : "Додати характеристику до словника"}
+              </h3>
+            </div>
+            <form onSubmit={handleFeatureDefSubmit}>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>
+                  Назва параметра (напр. Радіатор) *
+                </label>
+                <input
+                  type="text"
+                  name="feature_name"
+                  value={featureDefData.feature_name}
+                  onChange={handleFeatureDefChange}
                   required
                   className={styles.input}
                 />
               </div>
 
               <div className={styles.formGroup}>
-                <label className={styles.label}>Країна</label>
-                <input
-                  type="text"
-                  name="country"
-                  value={manData.country}
-                  onChange={handleManChange}
-                  className={styles.input}
-                />
+                <label className={styles.label}>Тип поля *</label>
+                <select
+                  name="display_type"
+                  value={featureDefData.display_type}
+                  onChange={handleFeatureDefChange}
+                  required
+                  className={styles.select}
+                >
+                  <option value="text">Текст (звичайний рядок)</option>
+                  <option value="number">Число</option>
+                  <option value="boolean">Логічний (Чекбокс: Є / Немає)</option>
+                  <option value="select">
+                    Випадаючий список (Один варіант)
+                  </option>
+                  <option value="multiselect">
+                    Множинний вибір (Через кому)
+                  </option>
+                </select>
               </div>
 
-              <div className={styles.formGroup}>
-                <label className={styles.label}>Сайт (URL)</label>
-                <input
-                  type="url"
-                  name="website"
-                  value={manData.website}
-                  onChange={handleManChange}
-                  className={styles.input}
-                />
-              </div>
-
-              <div className={styles.formGroup}>
-                <label className={styles.label}>Логотип</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={createFileUploadHandler(setManData, "logo_url")}
-                  className={styles.input}
-                />
-                {manData.logo_url && (
-                  <img
-                    src={manData.logo_url}
-                    alt="Preview"
-                    style={{
-                      width: "100px",
-                      marginTop: "10px",
-                      borderRadius: "6px",
-                    }}
+              {["select", "multiselect"].includes(
+                featureDefData.display_type,
+              ) && (
+                <div className={styles.formGroup}>
+                  <label className={styles.label}>
+                    Варіанти (через кому) *
+                  </label>
+                  <input
+                    type="text"
+                    name="options"
+                    value={featureDefData.options}
+                    onChange={handleFeatureDefChange}
+                    placeholder="XMP, EXPO, DOCP"
+                    required
+                    className={styles.input}
                   />
-                )}
-              </div>
-
-              <div className={`${styles.formGroup} ${styles.fullWidth}`}>
-                <label className={styles.label}>Опис компанії</label>
-                <textarea
-                  name="description"
-                  value={manData.description}
-                  onChange={handleManChange}
-                  className={styles.textarea}
-                />
-              </div>
+                </div>
+              )}
 
               <div className={styles.buttonGroup}>
                 <button
@@ -777,308 +1415,56 @@ export default function AdminPanel() {
           </div>
 
           <div className={styles.listCard}>
-            <h3>Список виробників</h3>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Назва</th>
-                  <th>Країна</th>
-                  <th>Дії</th>
-                </tr>
-              </thead>
-              <tbody>
-                {manufacturers.map((m) => (
-                  <tr key={m.manufacturer_id}>
-                    <td>{m.name}</td>
-                    <td>{m.country || "-"}</td>
-                    <td>
-                      <button
-                        onClick={() => {
-                          setEditingId(m.manufacturer_id);
-                          setManData({
-                            name: m.name,
-                            country: m.country || "",
-                            website: m.website || "",
-                            description: m.description || "",
-                            logo_url: m.logo_url || "",
-                          });
-                        }}
-                        className={styles.editBtn}
-                      >
-                        Ред.
-                      </button>
-                      <button
-                        onClick={() =>
-                          handleDelete(m.manufacturer_id, "manufacturer")
-                        }
-                        className={styles.deleteBtn}
-                      >
-                        Вид.
-                      </button>
-                    </td>
+            <div className={styles.cardHeader}>
+              <h3>Довідник ({featureDefs.length})</h3>
+            </div>
+            <div className={styles.tableContainer}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Назва параметра</th>
+                    <th>Тип</th>
+                    <th>Опції</th>
+                    <th>Дії</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* --- Вкладка Стандарти пам'яті --- */}
-      {activeTab === "type" && (
-        <div className={styles.splitLayout}>
-          <div className={styles.formCard}>
-            <h3>
-              {editingId
-                ? "Редагувати стандарт пам'яті"
-                : "Додати стандарт пам'яті"}
-            </h3>
-            <form onSubmit={handleTypeSubmit}>
-              <div className={styles.formGroup}>
-                <label className={styles.label}>
-                  Назва стандарту (напр. DDR5) *
-                </label>
-                <input
-                  type="text"
-                  name="type_name"
-                  value={typeData.type_name}
-                  onChange={handleTypeChange}
-                  required
-                  className={styles.input}
-                />
-              </div>
-
-              <div className={styles.formGroup}>
-                <label className={styles.label}>Базова напруга (Вольт) *</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  name="default_voltage"
-                  value={typeData.default_voltage}
-                  onChange={handleTypeChange}
-                  required
-                  min="0"
-                  className={styles.input}
-                />
-              </div>
-
-              <div className={`${styles.formGroup} ${styles.fullWidth}`}>
-                <label className={styles.label}>Зображення</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={createFileUploadHandler(setTypeData, "image_url")}
-                  className={styles.input}
-                />
-                {typeData.image_url && (
-                  <img
-                    src={typeData.image_url}
-                    alt="Preview"
-                    style={{
-                      width: "100px",
-                      marginTop: "10px",
-                      borderRadius: "6px",
-                    }}
-                  />
-                )}
-              </div>
-
-              <div className={`${styles.formGroup} ${styles.fullWidth}`}>
-                <label className={styles.label}>Опис стандарту</label>
-                <textarea
-                  name="description"
-                  value={typeData.description}
-                  onChange={handleTypeChange}
-                  className={styles.textarea}
-                />
-              </div>
-
-              <div className={styles.buttonGroup}>
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className={styles.submitBtn}
-                >
-                  {isLoading
-                    ? "Збереження..."
-                    : editingId
-                      ? "Зберегти зміни"
-                      : "Створити"}
-                </button>
-                {editingId && (
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className={styles.cancelBtn}
-                  >
-                    Скасувати
-                  </button>
-                )}
-              </div>
-            </form>
-          </div>
-
-          <div className={styles.listCard}>
-            <h3>Список стандартів</h3>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Стандарт</th>
-                  <th>Напруга</th>
-                  <th>Дії</th>
-                </tr>
-              </thead>
-              <tbody>
-                {memoryTypes.map((t) => (
-                  <tr key={t.type_id}>
-                    <td>{t.type_name}</td>
-                    <td>{t.default_voltage} В</td>
-                    <td>
-                      <button
-                        onClick={() => {
-                          setEditingId(t.type_id);
-                          setTypeData({
-                            type_name: t.type_name,
-                            default_voltage: String(t.default_voltage),
-                            description: t.description || "",
-                            image_url: t.image_url || "",
-                          });
-                        }}
-                        className={styles.editBtn}
-                      >
-                        Ред.
-                      </button>
-                      <button
-                        onClick={() => handleDelete(t.type_id, "type")}
-                        className={styles.deleteBtn}
-                      >
-                        Вид.
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* --- Вкладка Формфактори --- */}
-      {activeTab === "formFactor" && (
-        <div className={styles.splitLayout}>
-          <div className={styles.formCard}>
-            <h3>{editingId ? "Редагувати формфактор" : "Додати формфактор"}</h3>
-            <form onSubmit={handleFormFactorSubmit}>
-              <div className={styles.formGroup}>
-                <label className={styles.label}>
-                  Назва формфактора (напр. DIMM, SO-DIMM) *
-                </label>
-                <input
-                  type="text"
-                  name="form_factor_name"
-                  value={formData.form_factor_name}
-                  onChange={handleFormFactorChange}
-                  required
-                  className={styles.input}
-                />
-              </div>
-
-              <div className={styles.formGroup}>
-                <label className={styles.label}>Схема</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={createFileUploadHandler(setFormFactorData, "image_url")}
-                  className={styles.input}
-                />
-                {formData.image_url && (
-                  <img
-                    src={formData.image_url}
-                    alt="Preview"
-                    style={{
-                      width: "100px",
-                      marginTop: "10px",
-                      borderRadius: "6px",
-                    }}
-                  />
-                )}
-              </div>
-
-              <div className={`${styles.formGroup} ${styles.fullWidth}`}>
-                <label className={styles.label}>Опис формфактора</label>
-                <textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleFormFactorChange}
-                  className={styles.textarea}
-                />
-              </div>
-
-              <div className={styles.buttonGroup}>
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className={styles.submitBtn}
-                >
-                  {isLoading
-                    ? "Збереження..."
-                    : editingId
-                      ? "Зберегти зміни"
-                      : "Створити"}
-                </button>
-                {editingId && (
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className={styles.cancelBtn}
-                  >
-                    Скасувати
-                  </button>
-                )}
-              </div>
-            </form>
-          </div>
-
-          <div className={styles.listCard}>
-            <h3>Список формфакторів</h3>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Формфактор</th>
-                  <th>Дії</th>
-                </tr>
-              </thead>
-              <tbody>
-                {formFactors.map((f) => (
-                  <tr key={f.form_factor_id}>
-                    <td>{f.form_factor_name}</td>
-                    <td>
-                      <button
-                        onClick={() => {
-                          setEditingId(f.form_factor_id);
-                          setFormFactorData({
-                            form_factor_name: f.form_factor_name,
-                            description: f.description || "",
-                            image_url: f.image_url || "",
-                          });
-                        }}
-                        className={styles.editBtn}
-                      >
-                        Ред.
-                      </button>
-                      <button
-                        onClick={() =>
-                          handleDelete(f.form_factor_id, "formFactor")
-                        }
-                        className={styles.deleteBtn}
-                      >
-                        Вид.
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {featureDefs.map((f) => (
+                    <tr key={f.feature_id || f.feature_name}>
+                      <td>{f.feature_name}</td>
+                      <td>{f.display_type}</td>
+                      <td>{f.options ? f.options.join(", ") : "-"}</td>
+                      <td>
+                        <div className={styles.actionButtons}>
+                          <button
+                            onClick={() => {
+                              if (f.feature_id) setEditingId(f.feature_id);
+                              setFeatureDefData({
+                                feature_name: f.feature_name,
+                                display_type: f.display_type,
+                                options: f.options ? f.options.join(", ") : "",
+                              });
+                            }}
+                            className={styles.editBtn}
+                          >
+                            Ред.
+                          </button>
+                          <button
+                            onClick={() =>
+                              f.feature_id &&
+                              handleDelete(f.feature_id, "feature")
+                            }
+                            className={styles.deleteBtn}
+                          >
+                            Вид.
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

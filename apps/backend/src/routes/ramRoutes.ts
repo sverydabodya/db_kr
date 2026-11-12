@@ -8,6 +8,7 @@ const ramRepo = new RamRepository();
 const ramController = new RamController(ramRepo);
 
 RamRouter.get("/", ramController.getAll);
+RamRouter.get("/feautures", ramController.getFeatureDefinitions);
 RamRouter.get("/:id", ramController.getById);
 
 RamRouter.use(authenticateJWT);

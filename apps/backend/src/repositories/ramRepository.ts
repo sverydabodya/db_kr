@@ -13,47 +13,7 @@ export interface RamFilterParams {
 }
 
 export class RamRepository {
-  async findAll(filters: RamFilterParams = {}): Promise<RamModel[]> {
-    const conditions: string[] = [];
-    const values: any[] = [];
-    let paramIndex = 1;
-
-    if (filters.manufacturer_id) {
-      conditions.push(`r.manufacturer_id = $${paramIndex++}`);
-      values.push(filters.manufacturer_id);
-    }
-    if (filters.type_id) {
-      conditions.push(`r.type_id = $${paramIndex++}`);
-      values.push(filters.type_id);
-    }
-    if (filters.form_factor_id) {
-      conditions.push(`r.form_factor_id = $${paramIndex++}`);
-      values.push(filters.form_factor_id);
-    }
-    if (filters.min_capacity) {
-      conditions.push(`r.capacity_gb >= $${paramIndex++}`);
-      values.push(filters.min_capacity);
-    }
-    if (filters.min_frequency) {
-      conditions.push(`r.frequency_mhz >= $${paramIndex++}`);
-      values.push(filters.min_frequency);
-    }
-    if (filters.has_rgb !== undefined) {
-      conditions.push(`r.extra_features @> $${paramIndex++}::jsonb`);
-      values.push(JSON.stringify({ has_rgb: filters.has_rgb }));
-    }
-    if (filters.profile) {
-      conditions.push(`r.extra_features @> $${paramIndex++}::jsonb`);
-      values.push(JSON.stringify({ profiles: [filters.profile] }));
-    }
-    if (filters.search) {
-      conditions.push(`r.model_name ILIKE $${paramIndex++}`);
-      values.push(`%${filters.search}%`);
-    }
-
-    const whereClause =
-      conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-
+  async findAll(): Promise<RamModel[]> {
     const query = `
       SELECT 
         r.*,
@@ -64,11 +24,10 @@ export class RamRepository {
       LEFT JOIN public.manufacturers m ON r.manufacturer_id = m.manufacturer_id
       LEFT JOIN public.memory_types mt ON r.type_id = mt.type_id
       LEFT JOIN public.form_factors ff ON r.form_factor_id = ff.form_factor_id
-      ${whereClause}
       ORDER BY r.ram_id DESC;
     `;
 
-    const { rows } = await pool.query<RamModel>(query, values);
+    const { rows } = await pool.query<RamModel>(query);
     return rows;
   }
 
@@ -160,6 +119,21 @@ export class RamRepository {
     const result = await pool.query(query, [id]);
     return (result.rowCount ?? 0) > 0;
   }
+
+  async getExtraFeatureKeys(): Promise<string[]> {
+    const query = `
+    SELECT DISTINCT jsonb_object_keys(extra_features) AS feature_name
+    FROM public.ram_models
+    WHERE extra_features IS NOT NULL 
+      AND extra_features != '{}'::jsonb;
+  `;
+
+    try {
+      const { rows } = await pool.query(query);
+      return rows.map((row) => row.feature_name);
+    } catch (error) {
+      console.error("Помилка отримання ключів JSONB:", error);
+      return [];
+    }
+  }
 }
-
-

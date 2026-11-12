@@ -22,11 +22,9 @@ export class ElasticService {
             mappings: {
               properties: {
                 ram_id: { type: "integer" },
-
                 manufacturer_id: { type: "integer" },
                 type_id: { type: "integer" },
                 form_factor_id: { type: "integer" },
-
                 manufacturer_name: {
                   type: "text",
                   fields: { keyword: { type: "keyword" } },
@@ -47,14 +45,9 @@ export class ElasticService {
                   type: "text",
                   fields: { keyword: { type: "keyword", ignore_above: 256 } },
                 },
-
                 capacity_gb: { type: "integer" },
                 frequency_mhz: { type: "integer" },
                 extra_features: { type: "object" },
-
-                // ДОДАНО: Зберігаємо URL, але вимикаємо індексацію для нього (index: false),
-                // оскільки ми ніколи не шукаємо оперативку по тексту самого посилання.
-                // Це економить ресурси Elasticsearch.
                 image_url: { type: "keyword", index: false },
               },
             },
@@ -89,7 +82,6 @@ export class ElasticService {
           manufacturer_id: doc.manufacturer_id,
           type_id: doc.type_id,
           form_factor_id: doc.form_factor_id,
-
           manufacturer_name: doc.manufacturer_name,
           type_name: doc.type_name,
           form_factor_name: doc.form_factor_name,
@@ -98,7 +90,7 @@ export class ElasticService {
           frequency_mhz: doc.frequency_mhz,
           description: doc.description,
           extra_features: doc.extra_features,
-          image_url: doc.image_url, // ДОДАНО
+          image_url: doc.image_url,
         },
       ]);
 
@@ -139,7 +131,7 @@ export class ElasticService {
           frequency_mhz: doc.frequency_mhz,
           description: doc.description,
           extra_features: doc.extra_features,
-          image_url: doc.image_url, // ДОДАНО
+          image_url: doc.image_url,
         },
         refresh: true,
       });
@@ -211,7 +203,7 @@ export class ElasticService {
 
       return result.hits.hits.map((hit) => hit._source);
     } catch (error) {
-      console.error("❌ Помилка пошуку в Elasticsearch:", error);
+      console.error("Помилка пошуку в Elasticsearch:", error);
       throw new Error("Помилка пошукового рушія");
     }
   }
@@ -313,6 +305,60 @@ export class ElasticService {
       console.error("❌ Помилка пошуку з фільтрами в Elasticsearch:", error);
       throw new Error("Помилка отримання каталогу");
     }
+  }
+
+  async updateVendorInElastic(manufacturerId: number, newName: string) {
+    await elasticClient.updateByQuery({
+      index: this.INDEX_NAME,
+      refresh: true,
+      query: {
+        term: {
+          manufacturer_id: manufacturerId,
+        },
+      },
+      script: {
+        lang: "painless",
+        source: "ctx._source.manufacturer_name = params.newName",
+        params: { newName },
+      },
+    });
+  }
+
+  async updateMemoryTypeInElastic(typeId: number, newTypeName: string) {
+    await elasticClient.updateByQuery({
+      index: this.INDEX_NAME,
+      refresh: true,
+      query: {
+        term: {
+          type_id: typeId,
+        },
+      },
+      script: {
+        lang: "painless",
+        source: "ctx._source.type_name = params.newTypeName",
+        params: { newTypeName },
+      },
+    });
+  }
+
+  async updateFormFactorInElastic(
+    formFactorId: number,
+    newFormFactorName: string,
+  ) {
+    await elasticClient.updateByQuery({
+      index: this.INDEX_NAME,
+      refresh: true,
+      query: {
+        term: {
+          form_factor_id: formFactorId,
+        },
+      },
+      script: {
+        lang: "painless",
+        source: "ctx._source.form_factor_name = params.newFormFactorName",
+        params: { newFormFactorName },
+      },
+    });
   }
 
   async init() {

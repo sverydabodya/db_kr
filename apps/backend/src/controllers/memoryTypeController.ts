@@ -1,13 +1,16 @@
 import { Request, Response } from "express";
 import { MemoryTypeRepository } from "../repositories/memoryTypeRepository";
 import { redisClient } from "../config/redis";
+import { ElasticService } from "../services/elasticService";
 
 export class MemoryTypeController {
   private memoryTypeRepo: MemoryTypeRepository;
+  private elasticService: ElasticService;
   private readonly CACHE_KEY = "memoryTypes_all";
 
   constructor(memoryTypeRepo: MemoryTypeRepository) {
     this.memoryTypeRepo = memoryTypeRepo;
+    this.elasticService = new ElasticService();
   }
 
   getAll = async (req: Request, res: Response) => {
@@ -73,6 +76,7 @@ export class MemoryTypeController {
       const newType = await this.memoryTypeRepo.create(data);
 
       await redisClient.del(this.CACHE_KEY);
+      await redisClient.flushDb();
 
       res.status(201).json(newType);
     } catch (error: any) {
@@ -103,7 +107,15 @@ export class MemoryTypeController {
 
       const updatedType = await this.memoryTypeRepo.update(id, data);
 
+      if (data.type_name) {
+        await this.elasticService.updateMemoryTypeInElastic(
+          id,
+          updatedType!.type_name,
+        );
+      }
+
       await redisClient.del(this.CACHE_KEY);
+      await redisClient.flushDb();
 
       res.status(200).json(updatedType);
     } catch (error: any) {
@@ -134,6 +146,7 @@ export class MemoryTypeController {
       const success = await this.memoryTypeRepo.delete(id);
 
       await redisClient.del(this.CACHE_KEY);
+      await redisClient.flushDb();
 
       res.status(200).json({ success });
     } catch (error: any) {

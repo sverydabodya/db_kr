@@ -4,6 +4,8 @@ import { Request, Response } from "express";
 import { RamRepository } from "../repositories/ramRepository";
 import { redisClient } from "../config/redis";
 import { ElasticService } from "../services/elasticService";
+import { sanitizeExtraFeatures } from "../utils/featureValidator";
+import { pool } from "../config/db";
 
 export class RamController {
   constructor(ramRepo: RamRepository) {
@@ -74,6 +76,15 @@ export class RamController {
     }
   };
 
+  getKeys = async (req: Request, res: Response) => {
+    try {
+      const keys = await this.ramRepo.getExtraFeatureKeys();
+      res.status(200).json(keys);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  };
+
   create = async (req: Request, res: Response) => {
     try {
       const data = req.body;
@@ -92,9 +103,12 @@ export class RamController {
         return;
       }
 
+      data.extra_features = await sanitizeExtraFeatures(data.extra_features);
+
       const newRam = await this.ramRepo.create(data);
 
       await redisClient.del(this.CACHE_KEY);
+      await redisClient.flushDb();
 
       const fullRam = await this.ramRepo.findById(newRam.ram_id);
       if (fullRam) {
@@ -124,9 +138,12 @@ export class RamController {
         return;
       }
 
+      data.extra_features = await sanitizeExtraFeatures(data.extra_features);
+
       const updatedRam = await this.ramRepo.update(id, data);
 
       await redisClient.del(this.CACHE_KEY);
+      await redisClient.flushDb();
 
       const fullRam = await this.ramRepo.findById(id);
       if (fullRam) {
@@ -158,6 +175,7 @@ export class RamController {
       const success = await this.ramRepo.delete(id);
 
       await redisClient.del(this.CACHE_KEY);
+      await redisClient.flushDb();
 
       if (success) {
         await this.elasticService.deleteDocument(id);
@@ -190,5 +208,12 @@ export class RamController {
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
+  };
+
+  getFeatureDefinitions = async (req: Request, res: Response) => {
+    const result = await pool.query(
+      "SELECT * FROM feature_definitions ORDER BY feature_name",
+    );
+    res.json(result.rows);
   };
 }
